@@ -27,11 +27,12 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
         if _G.KeepInfYield and not _G.TeleportState.TeleportCheck and queueteleport then
             _G.TeleportState.TeleportCheck = true
             _G.TeleportState.TeleportRetries = 0
-            local scriptUrl = "https://raw.githubusercontent.com/1Sebass1/scripts/main/script.lua"
-            
-            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"Hi", "Hello", "xD"}
+            -- UPDATED: Your new GitHub URL
+            local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
+
+            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
-            
+
             -- FIXED: Reset state in _G when the script loads on the new server
             local payload = string.format([[
                 if type(_G.TeleportState) ~= "table" then
@@ -45,7 +46,7 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
                     loadstring(game:HttpGet('%s', true))()
                 end)
             ]], encodedChats, scriptUrl)
-            
+
             queueteleport(payload)
         end
     elseif State == Enum.TeleportState.Failed then
@@ -119,7 +120,15 @@ local n_Tmo = 60
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
 
-if type(_G.t_Fjd) ~= "table" then _G.t_Fjd = {"Hi", "Hello", "xD"} end
+-- UPDATED: Your custom chat messages
+if type(_G.t_Fjd) ~= "table" then 
+    _G.t_Fjd = {
+        "/gvse",
+        "broke? /gvse",
+        "slow cars? /gvse",
+        "want to larp? /gvse",
+    }
+end
 local t_Fjd = _G.t_Fjd
 
 local b_Oek = v_Rtd.ChatVersion == Enum.ChatVersion.LegacyChatService
@@ -155,7 +164,7 @@ local function f_Sho()
         _G.TeleportState.TeleportCheck = false
         return false
     end
-    
+
     local s_Req = httpRequest("https://games.roblox.com/v1/games/" .. id_Plc .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
     if not s_Req then 
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
@@ -184,7 +193,7 @@ local function f_Sho()
         v_Tps:TeleportToPlaceInstance(id_Plc, t_Srv[math.random(1, #t_Srv)], plr)
         return true
     end
-    
+
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
     return false
 end
@@ -192,7 +201,7 @@ end
 -- FIXED: Use _G.TeleportState for retry limiting
 v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-    
+
     if _G.TeleportState.TeleportRetries < _G.TeleportState.MaxRetries then
         task.wait(1)
         f_Sho()
@@ -206,7 +215,7 @@ end)
 v_Gui.ErrorMessageChanged:Connect(function(message)
     if message and (string.match(string.lower(message), "server is full") or string.match(string.lower(message), "another server")) then
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-        
+
         if _G.TeleportState.TeleportRetries < _G.TeleportState.MaxRetries then
             task.wait(1)
             f_Sho()
