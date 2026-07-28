@@ -18,7 +18,10 @@ if type(_G.TeleportState) ~= "table" then
     _G.TeleportState = {
         TeleportCheck = false,
         TeleportRetries = 0,
-        MaxRetries = 3
+        MaxRetries = 3,
+        ServerHopTimer = false,
+        ScriptFinished = false,
+        IsRunning = false
     }
 end
 
@@ -33,15 +36,24 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
 
-            -- FIXED: Reset state in _G when the script loads on the new server
+            -- FIXED: Reset all state when the script loads on the new server
             local payload = string.format([[
+                -- Reset all teleport state
                 if type(_G.TeleportState) ~= "table" then
-                    _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3}
+                    _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
                 else
                     _G.TeleportState.TeleportCheck = false
                     _G.TeleportState.TeleportRetries = 0
+                    _G.TeleportState.ServerHopTimer = false
+                    _G.TeleportState.ScriptFinished = false
+                    _G.TeleportState.IsRunning = false
                 end
-                task.delay(5, function()
+                
+                -- Wait for character to fully load
+                task.wait(3)
+                
+                -- Reload the script with 'true' to force fresh download
+                task.delay(2, function()
                     _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
                     loadstring(game:HttpGet('%s', true))()
                 end)
@@ -86,8 +98,18 @@ local function httpRequest(url)
     return nil
 end
 
+-- Prevent multiple instances running at once
+if _G.TeleportState.IsRunning then
+    print("Script already running, waiting...")
+    repeat task.wait(1) until not _G.TeleportState.IsRunning
+end
+_G.TeleportState.IsRunning = true
+
 local plr = v_QpZ.LocalPlayer
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
+
+-- Wait for character to fully load
+task.wait(2)
 
 local title = plr:FindFirstChild("PlayerGui") and plr.PlayerGui:FindFirstChild("Title")
 if title then title:Destroy() end
@@ -100,9 +122,30 @@ end
 
 if workspace.CurrentCamera then workspace.CurrentCamera:Destroy() end
 task.wait(0.1)
-repeat task.wait() until plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
-workspace.CurrentCamera.CameraSubject = plr.Character:FindFirstChildWhichIsA("Humanoid")
-workspace.CurrentCamera.CameraType = "Custom"
+
+-- Wait for character and humanoid
+local attempts = 0
+repeat 
+    task.wait(0.5)
+    attempts = attempts + 1
+    if attempts > 20 then
+        print("Timeout waiting for character - retrying")
+        plr.CharacterAdded:Wait()
+        attempts = 0
+    end
+until plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
+
+-- Double check character exists
+if not plr.Character then
+    plr.CharacterAdded:Wait()
+end
+
+-- Camera setup
+local humanoid = plr.Character:FindFirstChildWhichIsA("Humanoid")
+if humanoid then
+    workspace.CurrentCamera.CameraSubject = humanoid
+    workspace.CurrentCamera.CameraType = "Custom"
+end
 plr.CameraMinZoomDistance = 0.5
 plr.CameraMaxZoomDistance = 400
 plr.CameraMode = "Classic"
@@ -190,6 +233,9 @@ local function f_Sho()
 
     if #t_Srv > 0 then
         _G.TeleportState.TeleportRetries = 0
+        _G.TeleportState.ServerHopTimer = true
+        _G.TeleportState.ScriptFinished = true
+        _G.TeleportState.IsRunning = false
         v_Tps:TeleportToPlaceInstance(id_Plc, t_Srv[math.random(1, #t_Srv)], plr)
         return true
     end
@@ -197,6 +243,29 @@ local function f_Sho()
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
     return false
 end
+
+-- NEW: Function to force server hop when script finishes
+local function f_ForceHop()
+    if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
+        print("Script finished - forcing server hop!")
+        _G.TeleportState.ScriptFinished = true
+        _G.TeleportState.ServerHopTimer = true
+        _G.TeleportState.IsRunning = false
+        f_Sho()
+    end
+end
+
+-- 180-second safety net timer
+task.spawn(function()
+    task.wait(180)
+    if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
+        print("180 seconds passed - forcing server hop!")
+        _G.TeleportState.ServerHopTimer = true
+        _G.TeleportState.ScriptFinished = true
+        _G.TeleportState.IsRunning = false
+        f_Sho()
+    end
+end)
 
 -- FIXED: Use _G.TeleportState for retry limiting
 v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
@@ -208,6 +277,9 @@ v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     else
         _G.TeleportState.TeleportRetries = 0
         _G.TeleportState.TeleportCheck = false
+        _G.TeleportState.ServerHopTimer = false
+        _G.TeleportState.ScriptFinished = false
+        _G.TeleportState.IsRunning = false
     end
 end)
 
@@ -222,6 +294,9 @@ v_Gui.ErrorMessageChanged:Connect(function(message)
         else
             _G.TeleportState.TeleportRetries = 0
             _G.TeleportState.TeleportCheck = false
+            _G.TeleportState.ServerHopTimer = false
+            _G.TeleportState.ScriptFinished = false
+            _G.TeleportState.IsRunning = false
         end
     end
 end)
@@ -232,9 +307,11 @@ local function f_Lzt() return f_Hbv(plr) end
 local function f_Mqe(pos)
     local hrp = f_Lzt()
     if not hrp then return end
-    hrp.AssemblyLinearVelocity = Vector3.zero
-    hrp.AssemblyAngularVelocity = Vector3.zero
-    hrp.CFrame = CFrame.new(pos)
+    pcall(function()
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.CFrame = CFrame.new(pos)
+    end)
     task.wait(n_Vcs)
 end
 
@@ -260,11 +337,13 @@ local function f_Wpy(target, duration)
         if not target or not target.Parent then break end
         local myHrp = f_Lzt(); local tgtHrp = f_Hbv(target)
         if myHrp and tgtHrp then
-            local cen = tgtHrp.Position
-            myHrp.AssemblyLinearVelocity = Vector3.zero
-            myHrp.AssemblyAngularVelocity = Vector3.zero
-            local off = Vector3.new(math.cos(angle)*5, 0, math.sin(angle)*5)
-            myHrp.CFrame = CFrame.new(cen+off, cen)
+            pcall(function()
+                local cen = tgtHrp.Position
+                myHrp.AssemblyLinearVelocity = Vector3.zero
+                myHrp.AssemblyAngularVelocity = Vector3.zero
+                local off = Vector3.new(math.cos(angle)*5, 0, math.sin(angle)*5)
+                myHrp.CFrame = CFrame.new(cen+off, cen)
+            end)
         else break end
     end
 end
@@ -280,8 +359,19 @@ local function f_Kxs(visited)
 end
 
 local function f_Ryn()
-    local startHrp = f_Lzt()
+    -- Wait for character root part
+    local hrp = f_Lzt()
+    if not hrp then
+        print("Waiting for HumanoidRootPart...")
+        repeat 
+            task.wait(0.5)
+            hrp = f_Lzt()
+        until hrp
+    end
+    
+    local startHrp = hrp
     if not startHrp then return end
+    
     local origin = startHrp.Position
     local total = #v_QpZ:GetPlayers() - 1
     local visited = {}
@@ -293,17 +383,26 @@ local function f_Ryn()
         f_Wpy(p, n_Ptl)
         lastFound = os.clock()
     end
-    if found >= total then return end
+    if found >= total then 
+        f_ForceHop()
+        return 
+    end
 
     while found < total do
         local spiral = f_Dvi()
         local breakOuter = false
 
         for _, cell in ipairs(spiral) do
-            if found >= total then breakOuter = true; break end
+            if found >= total then 
+                breakOuter = true
+                f_ForceHop()
+                break 
+            end
 
             if os.clock() - lastFound >= n_Tmo then
-                if f_Sho() then return end
+                if f_Sho() then 
+                    return 
+                end
                 lastFound = os.clock()
                 break
             end
@@ -317,18 +416,41 @@ local function f_Ryn()
                 lastFound = os.clock()
                 local curHrp = f_Lzt()
                 if curHrp then origin = curHrp.Position end
-                if found >= total then breakOuter = true; break end
+                if found >= total then 
+                    breakOuter = true
+                    f_ForceHop()
+                    break 
+                end
             end
             if breakOuter then break end
         end
         if breakOuter then break end
     end
+    
+    f_ForceHop()
 end
 
-if not (plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")) then
-    plr.CharacterAdded:Wait()
-    repeat task.wait(0.1) until plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
-    task.wait(0.5)
+-- Main execution with error recovery
+local success, err = pcall(function()
+    -- Wait for character and root part
+    if not (plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")) then
+        print("Waiting for character...")
+        plr.CharacterAdded:Wait()
+        repeat 
+            task.wait(0.1) 
+        until plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+        task.wait(1)
+    end
+    
+    f_Ryn()
+end)
+
+if not success then
+    print("Script error: " .. tostring(err))
+    task.wait(2)
+    -- Try to recover by force hopping
+    f_ForceHop()
 end
 
-f_Ryn()
+-- Clean up
+_G.TeleportState.IsRunning = false
