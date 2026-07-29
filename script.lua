@@ -81,58 +81,77 @@ local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer
 
--- HIGH-QUALITY ANIMATED INTRO GUI ("Greenville Services")
+-- HIGH-QUALITY ANIMATED INTRO GUI ("Greenville Services") -> TOP RIGHT PERSISTENT WIDGET
 task.spawn(function()
     pcall(function()
         local playerGui = plr:WaitForChild("PlayerGui", 10)
         if not playerGui then return end
 
         local screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "IntroPopupGui"
+        screenGui.Name = "GreenvilleServicesWidget"
         screenGui.IgnoreGuiInset = true
         screenGui.DisplayOrder = 99999
         screenGui.Parent = playerGui
 
+        -- Main Container (Starts Centered)
         local container = Instance.new("Frame")
         container.Name = "IntroContainer"
-        container.Size = UDim2.new(0.8, 0, 0.2, 0)
+        container.Size = UDim2.new(0.4, 0, 0.12, 0)
         container.Position = UDim2.new(0.5, 0, 0.5, 0)
         container.AnchorPoint = Vector2.new(0.5, 0.5)
+        container.BackgroundColor3 = Color3.fromRGB(15, 20, 18)
         container.BackgroundTransparency = 1
         container.Parent = screenGui
 
+        local uiCorner = Instance.new("UICorner")
+        uiCorner.CornerRadius = UDim.new(0.5, 0)
+        uiCorner.Parent = container
+
+        local containerStroke = Instance.new("UIStroke")
+        containerStroke.Color = Color3.fromRGB(0, 255, 170)
+        containerStroke.Thickness = 1.5
+        containerStroke.Transparency = 1
+        containerStroke.Parent = container
+
+        -- Glowing Status Dot
+        local statusDot = Instance.new("Frame")
+        statusDot.Name = "StatusDot"
+        statusDot.Size = UDim2.new(0, 10, 0, 10)
+        statusDot.Position = UDim2.new(0, 16, 0.5, -5)
+        statusDot.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
+        statusDot.BackgroundTransparency = 1
+        statusDot.Parent = container
+
+        local dotCorner = Instance.new("UICorner")
+        dotCorner.CornerRadius = UDim.new(1, 0)
+        dotCorner.Parent = statusDot
+
+        -- Text Label
         local textLabel = Instance.new("TextLabel")
         textLabel.Name = "IntroText"
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.Position = UDim2.new(0, 0, 0, 0)
+        textLabel.Size = UDim2.new(1, -40, 1, 0)
+        textLabel.Position = UDim2.new(0, 35, 0, 0)
         textLabel.BackgroundTransparency = 1
         textLabel.Text = "Greenville Services"
-        textLabel.TextColor3 = Color3.fromRGB(0, 255, 170)
-        textLabel.TextScaled = true
-        textLabel.FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+        textLabel.TextColor3 = Color3.fromRGB(240, 255, 250)
+        textLabel.TextSize = 18
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
         textLabel.TextTransparency = 1
-        textLabel.TextStrokeTransparency = 1
-        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 50, 30)
         textLabel.Parent = container
 
-        local UIStroke = Instance.new("UIStroke")
-        UIStroke.Color = Color3.fromRGB(0, 255, 170)
-        UIStroke.Thickness = 0
-        UIStroke.Transparency = 1
-        UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-        UIStroke.Parent = textLabel
-
-        -- Animation Phase 1: Scale In with Elastic Bounce
-        container.Size = UDim2.new(0.2, 0, 0.05, 0)
+        -- Animation Phase 1: Scale In Center with Elastic Bounce
+        container.Size = UDim2.new(0.1, 0, 0.03, 0)
         
-        local tweenInInfo = TweenInfo.new(1.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-        local tweenTextInInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tweenInInfo = TweenInfo.new(1.0, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+        local fadeInInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-        TweenService:Create(container, tweenInInfo, {Size = UDim2.new(0.8, 0, 0.2, 0)}):Play()
-        TweenService:Create(textLabel, tweenTextInInfo, {TextTransparency = 0, TextStrokeTransparency = 0.2}):Play()
-        TweenService:Create(UIStroke, tweenTextInInfo, {Thickness = 3, Transparency = 0.3}):Play()
+        TweenService:Create(container, tweenInInfo, {Size = UDim2.new(0.35, 0, 0.1, 0), BackgroundTransparency = 0.2}):Play()
+        TweenService:Create(containerStroke, fadeInInfo, {Transparency = 0.2}):Play()
+        TweenService:Create(textLabel, fadeInInfo, {TextTransparency = 0}):Play()
+        TweenService:Create(statusDot, fadeInInfo, {BackgroundTransparency = 0}):Play()
 
-        -- Animation Phase 2: Gentle Floating Motion
+        -- Animation Phase 2: Gentle Floating Motion in Center
         task.wait(0.8)
         local floatTween = TweenService:Create(
             container, 
@@ -141,24 +160,33 @@ task.spawn(function()
         )
         floatTween:Play()
 
-        task.wait(3)
+        task.wait(2.5)
 
-        -- Animation Phase 3: Fade Out Exit
+        -- Animation Phase 3: Transition to Top-Right Corner Widget
         floatTween:Cancel()
-        local tweenOutInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         
-        local fadeOutText = TweenService:Create(textLabel, tweenOutInfo, {TextTransparency = 1, TextStrokeTransparency = 1})
-        local fadeOutStroke = TweenService:Create(UIStroke, tweenOutInfo, {Thickness = 0, Transparency = 1})
+        local slideToCornerInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         
-        fadeOutText:Play()
-        fadeOutStroke:Play()
-        
-        fadeOutText.Completed:Connect(function()
-            screenGui:Destroy()
+        -- Shrink and move to top right: {1, -20}, {0, 20} with AnchorPoint {1, 0}
+        TweenService:Create(container, slideToCornerInfo, {
+            Size = UDim2.new(0, 210, 0, 45),
+            Position = UDim2.new(1, -20, 0, 20),
+            AnchorPoint = Vector2.new(1, 0),
+            BackgroundColor3 = Color3.fromRGB(12, 16, 14),
+            BackgroundTransparency = 0.15
+        }):Play()
+
+        -- Pulse the status dot continuously to show it's "active"
+        task.spawn(function()
+            while screenGui.Parent do
+                TweenService:Create(statusDot, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.6}):Play()
+                task.wait(0.8)
+                TweenService:Create(statusDot, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0}):Play()
+                task.wait(0.8)
+            end
         end)
     end)
 end)
-
 -- ULTRA AGGRESSIVE CHAT UI RESTORATION
 task.spawn(function()
     while task.wait(1) do
