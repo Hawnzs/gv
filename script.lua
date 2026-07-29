@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, then says "hi [FullName]" and teleports/spins around them.
+-- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, dynamically streams/searches the map, and only says "hi [FullName]" once successfully orbiting them.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -150,18 +150,13 @@ task.spawn(function()
             BorderSizePixel = 0,
         }, track)
 
-        -- in
         tw(dim,   0.4, Q, OUT, { BackgroundTransparency = 0.55 })
         tw(label, 0.5, Q, OUT, { TextTransparency = 0 }, 0.1)
         tw(track, 0.5, Q, OUT, { BackgroundTransparency = 0.88 }, 0.15)
-
-        -- fill
-        tw(fill, TIME, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut,
-            { Size = UDim2.fromScale(1, 1) }, 0.4)
+        tw(fill, TIME, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, { Size = UDim2.fromScale(1, 1) }, 0.4)
 
         task.wait(TIME + 0.7)
 
-        -- out
         tw(dim,   0.35, Q, IN, { BackgroundTransparency = 1 })
         tw(label, 0.3,  Q, IN, { TextTransparency = 1 })
         tw(track, 0.3,  Q, IN, { BackgroundTransparency = 1 })
@@ -171,7 +166,6 @@ task.spawn(function()
             dim:Destroy(); label:Destroy(); track:Destroy()
         end)
 
-        -- widget
         if not WIDGET then return end
         task.wait(0.35)
 
@@ -223,7 +217,6 @@ task.spawn(function()
                 task.wait(0.8)
             end
         end)
-
     end)
 end)
 
@@ -261,20 +254,14 @@ end)
 -- ANTI-SIT & ANTI-RAGDOLL SYSTEM
 local function setupAntiStates(char)
     if not char then return end
-    
     local humanoid = char:WaitForChild("Humanoid", 5)
     if humanoid then
         humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
-            if humanoid.Sit then
-                humanoid.Sit = false
-            end
+            if humanoid.Sit then humanoid.Sit = false end
         end)
-        
         humanoid.StateChanged:Connect(function(_, newState)
-            if newState == Enum.HumanoidStateType.Seated then
+            if newState == Enum.HumanoidStateType.Seated or newState == Enum.HumanoidStateType.Ragdoll or newState == Enum.HumanoidStateType.FallingDown then
                 humanoid.Sit = false
-                humanoid:ChangeState(Enum.HumanoidStateType.Running)
-            elseif newState == Enum.HumanoidStateType.Ragdoll or newState == Enum.HumanoidStateType.FallingDown then
                 humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
         end)
@@ -292,13 +279,10 @@ local function setupAntiStates(char)
 end
 
 plr.CharacterAdded:Connect(setupAntiStates)
-if plr.Character then
-    task.spawn(function() setupAntiStates(plr.Character) end)
-end
+if plr.Character then task.spawn(function() setupAntiStates(plr.Character) end) end
 
 local function httpRequest(url)
-    local success, result
-    success, result = pcall(function() return game:HttpGet(url) end)
+    local success, result = pcall(function() return game:HttpGet(url) end)
     if success and type(result) == "string" and #result > 0 then return result end
 
     success, result = pcall(function()
@@ -322,14 +306,11 @@ end
 if _G.TeleportState.IsRunning then
     print("Script already running, waiting...")
     local waitStart = tick()
-    repeat 
-        task.wait(1) 
-    until not _G.TeleportState.IsRunning or (tick() - waitStart > 10)
+    repeat task.wait(1) until not _G.TeleportState.IsRunning or (tick() - waitStart > 10)
 end
 _G.TeleportState.IsRunning = true
 
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
-
 task.wait(2)
 
 local title = plr:FindFirstChild("PlayerGui") and plr.PlayerGui:FindFirstChild("Title")
@@ -349,15 +330,12 @@ repeat
     task.wait(0.5)
     attempts = attempts + 1
     if attempts > 20 then
-        print("Timeout waiting for character - retrying")
         plr.CharacterAdded:Wait()
         attempts = 0
     end
 until plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
 
-if not plr.Character then
-    plr.CharacterAdded:Wait()
-end
+if not plr.Character then plr.CharacterAdded:Wait() end
 
 local humanoid = plr.Character:FindFirstChildWhichIsA("Humanoid")
 if humanoid then
@@ -373,7 +351,6 @@ if head then head.Anchored = false end
 
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
-
 local b_Oek = v_Rtd.ChatVersion == Enum.ChatVersion.LegacyChatService
 
 local function f_Nra(s_Yui)
@@ -385,136 +362,111 @@ local function f_Nra(s_Yui)
     end
 end
 
--- ENHANCED SERVER HOPPER WITH FAILSAFE FALLBACKS
+-- ENHANCED SERVER HOPPER
 local function f_Sho()
     safeQueueTeleport()
-    
     local s_Req = httpRequest("https://games.roblox.com/v1/games/" .. id_Plc .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
     if s_Req then 
         local ok_Bod, t_Bod = pcall(function() return v_Hts:JSONDecode(s_Req) end)
         if ok_Bod and t_Bod and t_Bod.data then 
             local t_Srv = {}
             for _, v_Ent in ipairs(t_Bod.data) do
-                if type(v_Ent) == "table"
-                    and tonumber(v_Ent.playing)
-                    and tonumber(v_Ent.maxPlayers)
-                    and v_Ent.playing < v_Ent.maxPlayers
-                    and v_Ent.id ~= id_Job then
+                if type(v_Ent) == "table" and tonumber(v_Ent.playing) and tonumber(v_Ent.maxPlayers) and v_Ent.playing < v_Ent.maxPlayers and v_Ent.id ~= id_Job then
                     table.insert(t_Srv, v_Ent.id)
                 end
             end
-
             if #t_Srv > 0 then
                 _G.TeleportState.ServerHopTimer = true
                 _G.TeleportState.ScriptFinished = true
                 _G.TeleportState.IsRunning = false
-                
                 local randomServer = t_Srv[math.random(1, #t_Srv)]
-                local tpSuccess = pcall(function()
-                    v_Tps:TeleportToPlaceInstance(id_Plc, randomServer, plr)
-                end)
-                
-                if tpSuccess then return true end
+                if pcall(function() v_Tps:TeleportToPlaceInstance(id_Plc, randomServer, plr) end) then return true end
             end
         end
     end
-
     _G.TeleportState.ServerHopTimer = true
     _G.TeleportState.ScriptFinished = true
     _G.TeleportState.IsRunning = false
-    pcall(function()
-        v_Tps:Teleport(id_Plc, plr)
-    end)
+    pcall(function() v_Tps:Teleport(id_Plc, plr) end)
     return true
 end
 
-v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
-    _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-    task.wait(2)
-    f_Sho()
-end)
-
-v_Gui.ErrorMessageChanged:Connect(function(message)
-    if message and #message > 0 then
-        _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-        task.wait(2)
-        f_Sho()
-    end
-end)
+v_Tps.TeleportInitFailed:Connect(function() f_Sho() end)
+v_Gui.ErrorMessageChanged:Connect(function(msg) if msg and #msg > 0 then f_Sho() end end)
 
 local function f_Hbv(p) return p.Character and p.Character:FindFirstChild("HumanoidRootPart") end
 local function f_Lzt() return f_Hbv(plr) end
 
--- DYNAMIC PING MEASUREMENT FOR LATENCY LEAD CALCULATION
 local function getPingInSeconds()
     local ping = 0.1
     pcall(function()
         local dataPing = Stats.Network.ServerStatsItem["Data Ping"]
-        if dataPing then
-            ping = (dataPing:GetValue() / 1000)
-        end
+        if dataPing then ping = (dataPing:GetValue() / 1000) end
     end)
     return math.clamp(ping, 0.05, 0.5)
 end
 
--- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "Sebassrebornnn"
+-- GLOBAL TARGET CACHE
 local currentChatTarget = nil
+local hasSaidHelloForTarget = false
 
 -- CHAT LISTENER FOR SEBASSREBORNNN
 local function handleChatInput(senderName, message)
     if senderName:lower() == "sebassrebornnn" then
         local trimmedMessage = message:match("^%s*(.-)%s*$")
         for _, p in ipairs(v_QpZ:GetPlayers()) do
-            if p.Name:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() or p.DisplayName:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() then
+            if p ~= plr and (p.Name:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() or p.DisplayName:lower():sub(1, #trimmedMessage) == trimmedMessage:lower()) then
                 currentChatTarget = p
-                print("[GVS] Target updated to: " .. p.Name)
-                -- Say "hi [FullName]" using their full username
-                f_Nra("hi " .. p.Name)
+                hasSaidHelloForTarget = false -- Reset confirmation so it checks and sends "hi" once locked in
+                print("[GVS] Search initiated for target: " .. p.Name)
                 break
             end
         end
     end
 end
 
--- Setup Legacy & TextChatService listeners
 if b_Oek then
     for _, p in ipairs(v_QpZ:GetPlayers()) do
-        p.Chatted:Connect(function(msg)
-            handleChatInput(p.Name, msg)
-        end)
+        p.Chatted:Connect(function(msg) handleChatInput(p.Name, msg) end)
     end
     v_QpZ.PlayerAdded:Connect(function(p)
-        p.Chatted:Connect(function(msg)
-            handleChatInput(p.Name, msg)
-        end)
+        p.Chatted:Connect(function(msg) handleChatInput(p.Name, msg) end)
     end)
 else
     pcall(function()
         v_Rtd.MessageReceived:Connect(function(textMessage)
             if textMessage.TextSource then
                 local senderPlayer = v_QpZ:GetPlayerByUserId(textMessage.TextSource.UserId)
-                if senderPlayer then
-                    handleChatInput(senderPlayer.Name, textMessage.Text)
-                end
+                if senderPlayer then handleChatInput(senderPlayer.Name, textMessage.Text) end
             end
         end)
     end)
 end
 
--- TELEPORT & FAST SPIN ORBIT HOOK
+-- MAP SEARCH, STREAMING BYPASS & FAST SPIN ORBIT HOOK
 local SPEED_THRESHOLD = 16
 
 local function f_Wpy(target)
     local angle = 0
 
-    while target and target.Parent and v_QpZ:FindFirstChild(target.Name) and currentChatTarget == target do
+    while target and target.Parent and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
-        angle = angle + 12 * dt -- Faster spin speed around target
-
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
+        -- Bypass streaming boundaries by forcing client replication focus to target's position
+        if tgtHrp then
+            pcall(function() plr.ReplicationFocus = tgtHrp end)
+        end
+
         if myHrp and tgtHrp then
+            -- Successfully found, streamed in, and tracking! Send "hi" message once per target lock.
+            if not hasSaidHelloForTarget then
+                hasSaidHelloForTarget = true
+                f_Nra("hi " .. target.Name)
+            end
+
+            angle = angle + 12 * dt
             pcall(function()
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                 local targetVel = targetAssembly.AssemblyLinearVelocity
@@ -526,9 +478,7 @@ local function f_Wpy(target)
                 if targetSpeed > SPEED_THRESHOLD then
                     local pingSec = getPingInSeconds()
                     local leadTime = (pingSec * 1.8) + 0.15 
-                    
                     predictedPos = targetAssembly.Position + (targetVel * leadTime)
-
                     local moveDir = targetVel.Unit
                     leadFrontOffset = moveDir * math.clamp(targetSpeed * 0.25, 3, 15)
                 end
@@ -536,47 +486,41 @@ local function f_Wpy(target)
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
 
-                local orbitRadius = 5 -- Close distance orbit
+                local orbitRadius = 5
                 local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 2, math.sin(angle) * orbitRadius)
-
-                -- Directly Teleport/Position right onto them dynamically in an orbit
-                local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
-                myHrp.CFrame = finalTargetCFrame
+                myHrp.CFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
             end)
         else
+            -- If the target is streamed out or hidden, wait safely without breaking
             task.wait(0.2)
         end
     end
+
+    -- Reset replication focus when dropping target tracking
+    pcall(function() plr.ReplicationFocus = nil end)
 end
 
--- IDLE AT SPAWN UNTIL SEBASSREBORNNN CHATS A TARGET
 local function f_Ryn()
     while true do
-        if currentChatTarget and currentChatTarget.Parent and f_Hbv(currentChatTarget) then
-            f_Wpy(currentChatTarget)
-        else
-            currentChatTarget = nil
+        if currentChatTarget then
+            if currentChatTarget.Parent then
+                f_Wpy(currentChatTarget)
+            else
+                currentChatTarget = nil
+                hasSaidHelloForTarget = false
+            end
         end
         task.wait(0.5)
     end
 end
 
-local success, err = pcall(function()
+pcall(function()
     if not (plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")) then
-        print("Waiting for character...")
         plr.CharacterAdded:Wait()
-        repeat 
-            task.wait(0.1) 
-        until plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+        repeat task.wait(0.1) until plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
         task.wait(1)
     end
-    
     f_Ryn()
 end)
-
-if not success then
-    print("Script error: " .. tostring(err))
-    task.wait(2)
-end
 
 _G.TeleportState.IsRunning = false
