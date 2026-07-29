@@ -491,8 +491,11 @@ if b_Oek then
 else
     pcall(function()
         v_Rtd.MessageReceived:Connect(function(textMessage)
-            if textMessage.SourcePlayer then
-                handleChatInput(textMessage.SourcePlayer.Name, textMessage.Text)
+            if textMessage.TextSource then
+                local senderPlayer = v_QpZ:GetPlayerByUserId(textMessage.TextSource.UserId)
+                if senderPlayer then
+                    handleChatInput(senderPlayer.Name, textMessage.Text)
+                end
             end
         end)
     end)
@@ -534,7 +537,7 @@ local function f_Wpy(target)
                 myHrp.AssemblyAngularVelocity = Vector3.zero
 
                 local orbitRadius = 6
-                local orbitOffset = UDim2 and Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius) or Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
+                local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
 
                 local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
                 myHrp.CFrame = finalTargetCFrame
@@ -571,9 +574,8 @@ local success, err = pcall(function()
 end)
 
 if not success then
-    print("Script error: " + tostring(err)) -- FIXED string concatenation operator here (changed '+' to '..')
+    print("Script error: " .. tostring(err))
     task.wait(2)
-    -- f_Sho() (Fixed reference to f_Sho instead of f_ForceHop)
 end
 
 _G.TeleportState.IsRunning = false
