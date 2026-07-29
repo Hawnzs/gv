@@ -1,4 +1,4 @@
--- FPS Capper & Teleport/Server-Hop Automation Script with Forced Chat UI Fix
+-- FPS Capper & Teleport Automation Script with Forced CoreGui Chat & TextChatService Fallback
 
 local RunService = game:GetService("RunService")
 local TARGET_FPS = 15
@@ -46,7 +46,7 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
-            local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
+            local encodedChats = game:GetService("HttpService"):JSONDecode and game:GetService("HttpService"):JSONEncode(currentChats) or "[]"
 
             local payload = string.format([[
                 if type(_G.TeleportState) ~= "table" then
@@ -82,15 +82,37 @@ local v_Tps = game:GetService("TeleportService")
 local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
+local plr = v_QpZ.LocalPlayer
 
--- FORCED CHAT UI FIX: Ensure CoreGui chat components are explicitly enabled and loaded
+-- ULTRA AGGRESSIVE CHAT UI RESTORATION
 task.spawn(function()
-    pcall(function()
-        v_Sgi:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
-    end)
-    pcall(function()
-        v_Sgi:SetCore("ChatWindowVisible", true)
-    end)
+    while task.wait(1) do
+        pcall(function()
+            v_Sgi:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+            v_Sgi:SetCore("ChatWindowVisible", true)
+            v_Sgi:SetCore("ChatActive", true)
+            
+            local playerGui = plr:FindFirstChild("PlayerGui")
+            if playerGui then
+                local chatGui = playerGui:FindFirstChild("Chat")
+                if chatGui then
+                    chatGui.Enabled = true
+                    for _, child in ipairs(chatGui:GetDescendants()) do
+                        if child:IsA("Frame") or child:IsA("ScrollingFrame") or child:IsA("TextBox") then
+                            child.Visible = true
+                        end
+                    end
+                end
+            end
+            
+            if v_Rtd.ChatVersion == Enum.ChatVersion.TextChatService then
+                local windowConfig = v_Rtd:FindFirstChild("ChatWindowConfiguration")
+                if windowConfig then
+                    windowConfig.Enabled = true
+                end
+            end
+        end)
+    end
 end)
 
 local function httpRequest(url)
@@ -122,7 +144,6 @@ if _G.TeleportState.IsRunning then
 end
 _G.TeleportState.IsRunning = true
 
-local plr = v_QpZ.LocalPlayer
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
 
 task.wait(2)
@@ -187,21 +208,6 @@ end
 local t_Fjd = _G.t_Fjd
 
 local b_Oek = v_Rtd.ChatVersion == Enum.ChatVersion.LegacyChatService
-
-task.spawn(function()
-    while task.wait(0.5) do
-        pcall(function()
-            if b_Oek then
-                v_Sgi:SetCore("ChatActive", true)
-            else
-                local chatConfig = v_Rtd:FindFirstChild("ChatWindowConfiguration")
-                if chatConfig then
-                    chatConfig.Enabled = true
-                end
-            end
-        end)
-    end
-end)
 
 local function f_Nra(s_Yui)
     s_Yui = tostring(s_Yui)
