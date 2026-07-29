@@ -167,9 +167,6 @@ local id_Job = game.JobId
 if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
         "/gvse",
-        "broke? /gvse",
-        "slow cars? /gvse",
-        "want to larp? /gvse",
     }
 end
 local t_Fjd = _G.t_Fjd
