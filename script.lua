@@ -461,6 +461,7 @@ end
 
 -- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "Sebassrebornnn"
 local currentChatTarget = nil
+local currentChatTargetName = nil
 
 -- CHAT LISTENER FOR SEBASSREBORNNN (Map-Wide Streaming Scanner)
 local function handleChatInput(senderName, message)
@@ -474,7 +475,8 @@ local function handleChatInput(senderName, message)
                 local pDisplayName = p.DisplayName:lower()
                 if pName:sub(1, #trimmedMessage) == trimmedMessage or pDisplayName:sub(1, #trimmedMessage) == trimmedMessage or pName:find(trimmedMessage) then
                     currentChatTarget = p
-                    print("[GVS] Target matched: " .. p.Name)
+                    currentChatTargetName = p.Name
+                    print("[GVS] Locked global target username: " .. p.Name)
                     
                     -- AGGRESSIVE MAP STREAMING: Force stream bounds around where the player is expected to be
                     task.spawn(function()
@@ -530,7 +532,42 @@ else
     end)
 end
 
--- TELEPORT & FAST SPIN ORBIT HOOK WITH STREAMING PROTECTION
+-- TRACKS TARGET GLOBALLY REGARDLESS OF MAP STREAMING STATE
+local function f_Ryn()
+    while true do
+        if currentChatTargetName then
+            local targetPlayer = v_QpZ:FindFirstChild(currentChatTargetName)
+            if targetPlayer then
+                local myHrp = f_Lzt()
+                local tgtHrp = f_Hbv(targetPlayer)
+                
+                -- If target is streamed out, fallback to checking if character model exists in-engine
+                if not tgtHrp and targetPlayer.Character then
+                    tgtHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart") or targetPlayer.Character:FindFirstChild("Head")
+                end
+
+                if myHrp and tgtHrp then
+                    pcall(function()
+                        myHrp.AssemblyLinearVelocity = Vector3.zero
+                        myHrp.AssemblyAngularVelocity = Vector3.zero
+                        -- Direct coordinate CFrame lock onto target
+                        myHrp.CFrame = tgtHrp.CFrame * CFrame.new(0, 3, 5)
+                    end)
+                else
+                    -- Target is completely out of client render bounds; try shifting local focus closer or wait
+                    pcall(function()
+                        plr.ReplicationFocus = targetPlayer.Character or workspace
+                    end)
+                end
+            else
+                currentChatTargetName = nil
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- TELEPORT & FAST SPIN ORBIT HOOK WITH TRUE CLIENT REPLICATION FOCUS SCANNING
 local SPEED_THRESHOLD = 16
 
 local function f_Wpy(target)
@@ -543,62 +580,63 @@ local function f_Wpy(target)
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
-        -- If target is streamed out, force map streaming loops immediately to pull them into local physics
-        if not tgtHrp then
-            pcall(function()
-                -- Fallback scan across client positions to stream map chunks back in
-                workspace:RequestStreamAroundAsync(myHrp.Position + Vector3.new(math.random(-100, 100), 0, math.random(-100, 100)), 50)
-            end)
+        -- If target character root part doesn't exist yet, force replication focus to sweep-locate them
+        if not tgtHrp and target.Character then
+            tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head")
         end
 
-        if myHrp and tgtHrp then
+        if myHrp then
             pcall(function()
-                pcall(function()
-                    workspace:RequestStreamAroundAsync(tgtHrp.Position, 25)
-                end)
+                if tgtHrp then
+                    -- Force client network replication focus directly onto the target position
+                    plr.ReplicationFocus = tgtHrp
+                    pcall(function()
+                        plr:RequestStreamAroundAsync(tgtHrp.Position, 2)
+                    end)
 
-                local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
-                local targetVel = targetAssembly.AssemblyLinearVelocity
-                local targetSpeed = targetVel.Magnitude
+                    local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
+                    local targetVel = targetAssembly.AssemblyLinearVelocity
+                    local targetSpeed = targetVel.Magnitude
 
-                local predictedPos = targetAssembly.Position
-                local leadFrontOffset = Vector3.zero
+                    local predictedPos = targetAssembly.Position
+                    local leadFrontOffset = Vector3.zero
 
-                if targetSpeed > SPEED_THRESHOLD then
-                    local pingSec = getPingInSeconds()
-                    local leadTime = (pingSec * 1.8) + 0.15 
-                    
-                    predictedPos = targetAssembly.Position + (targetVel * leadTime)
+                    if targetSpeed > SPEED_THRESHOLD then
+                        local pingSec = getPingInSeconds()
+                        local leadTime = (pingSec * 1.8) + 0.15 
+                        
+                        predictedPos = targetAssembly.Position + (targetVel * leadTime)
 
-                    local moveDir = targetVel.Unit
-                    leadFrontOffset = moveDir * math.clamp(targetSpeed * 0.25, 3, 15)
+                        local moveDir = targetVel.Unit
+                        leadFrontOffset = moveDir * math.clamp(targetSpeed * 0.25, 3, 15)
+                    end
+
+                    myHrp.AssemblyLinearVelocity = Vector3.zero
+                    myHrp.AssemblyAngularVelocity = Vector3.zero
+
+                    local orbitRadius = 5 
+                    local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 2, math.sin(angle) * orbitRadius)
+
+                    local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
+                    myHrp.CFrame = finalTargetCFrame
+                else
+                    -- Sweep search grid around map center to pull chunks in if target position is entirely unknown
+                    plr.ReplicationFocus = myHrp
+                    pcall(function()
+                        plr:RequestStreamAroundAsync(myHrp.Position + Vector3.new(math.random(-300, 300), 0, math.random(-300, 300)), 1)
+                    end)
                 end
-
-                myHrp.AssemblyLinearVelocity = Vector3.zero
-                myHrp.AssemblyAngularVelocity = Vector3.zero
-
-                local orbitRadius = 5 
-                local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 2, math.sin(angle) * orbitRadius)
-
-                local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
-                myHrp.CFrame = finalTargetCFrame
             end)
         else
             task.wait(0.1)
         end
     end
-end
-
--- IDLE AT SPAWN UNTIL SEBASSREBORNNN CHATS A TARGET
-local function f_Ryn()
-    while true do
-        if currentChatTarget and currentChatTarget.Parent then
-            f_Wpy(currentChatTarget)
-        else
-            currentChatTarget = nil
+    -- Reset replication focus back to local character when target clears
+    pcall(function()
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            plr.ReplicationFocus = plr.Character.HumanoidRootPart
         end
-        task.wait(0.5)
-    end
+    end)
 end
 
 local success, err = pcall(function()
@@ -611,7 +649,15 @@ local success, err = pcall(function()
         task.wait(1)
     end
     
-    f_Ryn()
+    task.spawn(f_Ryn)
+    while true do
+        if currentChatTarget and currentChatTarget.Parent then
+            f_Wpy(currentChatTarget)
+        else
+            currentChatTarget = nil
+        end
+        task.wait(0.5)
+    end
 end)
 
 if not success then
