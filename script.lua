@@ -1,5 +1,4 @@
--- FPS Capper & Teleport Automation Script with Forced CoreGui Chat & TextChatService Fallback
-
+-- FPS Capper & Teleport Automation Script with Screen Overlay & Chat Service
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TARGET_FPS = 15
@@ -20,6 +19,7 @@ local function missing(expectedType, value, fallback)
     return fallback
 end
 
+-- Bulletproof queue_on_teleport function resolver
 local queueteleport = queue_on_teleport 
     or (syn and syn.queue_on_teleport) 
     or (fluxus and fluxus.queue_on_teleport) 
@@ -34,52 +34,34 @@ if type(_G.TeleportState) ~= "table" then
     _G.TeleportState = {
         TeleportCheck = false,
         TeleportRetries = 0,
-        MaxRetries = 3,
+        MaxRetries = 5,
         ServerHopTimer = false,
         ScriptFinished = false,
         IsRunning = false
     }
 end
 
+local SCRIPT_URL = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
+
+-- Universal function to set queue on teleport prior to hopping
+local function safeQueueTeleport()
+    if queueteleport then
+        pcall(function()
+            queueteleport(string.format([[
+                task.wait(1)
+                pcall(function()
+                    loadstring(game:HttpGet("%s", true))()
+                end)
+            ]], SCRIPT_URL))
+        end)
+    end
+end
+
 game.Players.LocalPlayer.OnTeleport:Connect(function(State)
     if State == Enum.TeleportState.InProgress then
-        if _G.KeepInfYield and not _G.TeleportState.TeleportCheck and queueteleport then
+        if _G.KeepInfYield and not _G.TeleportState.TeleportCheck then
             _G.TeleportState.TeleportCheck = true
-            _G.TeleportState.TeleportRetries = 0
-            local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
-
-            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
-            local encodedChats = currentChats and game:GetService("HttpService"):JSONEncode(currentChats) or "[]"
-            
-            -- Bulletproof self-re-execution payload wrapper
-            local payload = string.format([[
-                task.spawn(function()
-                    if type(_G.TeleportState) ~= "table" then
-                        _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
-                    else
-                        _G.TeleportState.TeleportCheck = false
-                        _G.TeleportState.TeleportRetries = 0
-                        _G.TeleportState.ServerHopTimer = false
-                        _G.TeleportState.ScriptFinished = false
-                        _G.TeleportState.IsRunning = false
-                    end
-                    
-                    pcall(function()
-                        _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
-                    end)
-                    
-                    local success, err = pcall(function()
-                        loadstring(game:HttpGet('%s', true))()
-                    end)
-                    if not success then
-                        warn("Teleport re-execution failed: ", err)
-                    end
-                end)
-            ]], encodedChats, scriptUrl)
-
-            pcall(function()
-                queueteleport(payload)
-            end)
+            safeQueueTeleport()
         end
     elseif State == Enum.TeleportState.Failed then
         _G.TeleportState.TeleportCheck = false
@@ -96,6 +78,34 @@ local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer
+
+-- FULLSCREEN 50% OPACITY OVERLAY GUI
+task.spawn(function()
+    pcall(function()
+        local playerGui = plr:WaitForChild("PlayerGui", 10)
+        if not playerGui then return end
+
+        local existingGui = playerGui:FindFirstChild("FullScreenOverlayGui")
+        if existingGui then existingGui:Destroy() end
+
+        local overlayGui = Instance.new("ScreenGui")
+        overlayGui.Name = "FullScreenOverlayGui"
+        overlayGui.IgnoreGuiInset = true
+        overlayGui.ResetOnSpawn = false
+        overlayGui.DisplayOrder = 99998
+        overlayGui.Parent = playerGui
+
+        local imageLabel = Instance.new("ImageLabel")
+        imageLabel.Name = "OverlayImage"
+        imageLabel.Size = UDim2.new(1, 0, 1, 0)
+        imageLabel.Position = UDim2.new(0, 0, 0, 0)
+        imageLabel.BackgroundTransparency = 1
+        imageLabel.Image = "rbxassetid://114976193289412"
+        imageLabel.ImageTransparency = 0.5 -- 50% Opacity
+        imageLabel.ScaleType = Enum.ScaleType.Stretch
+        imageLabel.Parent = overlayGui
+    end)
+end)
 
 -- COOL FONT INTRO POPUP GUI
 task.spawn(function()
@@ -309,56 +319,47 @@ local function f_Nra(s_Yui)
     end
 end
 
+-- ENHANCED SERVER HOPPER WITH FAILSAFE FALLBACKS
 local function f_Sho()
-    if _G.TeleportState.TeleportRetries >= _G.TeleportState.MaxRetries then
-        _G.TeleportState.TeleportRetries = 0
-        _G.TeleportState.TeleportCheck = false
-        _G.TeleportState.IsRunning = false
-        return false
-    end
-
+    safeQueueTeleport()
+    
     local s_Req = httpRequest("https://games.roblox.com/v1/games/" .. id_Plc .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
-    if not s_Req then 
-        _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-        return false 
-    end
+    if s_Req then 
+        local ok_Bod, t_Bod = pcall(function() return v_Hts:JSONDecode(s_Req) end)
+        if ok_Bod and t_Bod and t_Bod.data then 
+            local t_Srv = {}
+            for _, v_Ent in ipairs(t_Bod.data) do
+                if type(v_Ent) == "table"
+                    and tonumber(v_Ent.playing)
+                    and tonumber(v_Ent.maxPlayers)
+                    and v_Ent.playing < v_Ent.maxPlayers
+                    and v_Ent.id ~= id_Job then
+                    table.insert(t_Srv, v_Ent.id)
+                end
+            end
 
-    local ok_Bod, t_Bod = pcall(function() return v_Hts:JSONDecode(s_Req) end)
-    if not ok_Bod or not t_Bod or not t_Bod.data then 
-        _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-        return false 
-    end
-
-    local t_Srv = {}
-    for _, v_Ent in ipairs(t_Bod.data) do
-        if type(v_Ent) == "table"
-            and tonumber(v_Ent.playing)
-            and tonumber(v_Ent.maxPlayers)
-            and v_Ent.playing < v_Ent.maxPlayers
-            and v_Ent.id ~= id_Job then
-            table.insert(t_Srv, v_Ent.id)
+            if #t_Srv > 0 then
+                _G.TeleportState.ServerHopTimer = true
+                _G.TeleportState.ScriptFinished = true
+                _G.TeleportState.IsRunning = false
+                
+                local randomServer = t_Srv[math.random(1, #t_Srv)]
+                local tpSuccess = pcall(function()
+                    v_Tps:TeleportToPlaceInstance(id_Plc, randomServer, plr)
+                end)
+                
+                if tpSuccess then return true end
+            end
         end
     end
 
-    if #t_Srv > 0 then
-        _G.TeleportState.TeleportRetries = 0
-        _G.TeleportState.ServerHopTimer = true
-        _G.TeleportState.ScriptFinished = true
-        _G.TeleportState.IsRunning = false
-        
-        local tpSuccess = pcall(function()
-            v_Tps:TeleportToPlaceInstance(id_Plc, t_Srv[math.random(1, #t_Srv)], plr)
-        end)
-        
-        if not tpSuccess then
-            _G.TeleportState.IsRunning = false
-            return false
-        end
-        return true
-    end
-
-    _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-    return false
+    _G.TeleportState.ServerHopTimer = true
+    _G.TeleportState.ScriptFinished = true
+    _G.TeleportState.IsRunning = false
+    pcall(function()
+        v_Tps:Teleport(id_Plc, plr)
+    end)
+    return true
 end
 
 local function f_ForceHop()
@@ -384,33 +385,15 @@ end)
 
 v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-
-    if _G.TeleportState.TeleportRetries < _G.TeleportState.MaxRetries then
-        task.wait(1)
-        f_Sho()
-    else
-        _G.TeleportState.TeleportRetries = 0
-        _G.TeleportState.TeleportCheck = false
-        _G.TeleportState.ServerHopTimer = false
-        _G.TeleportState.ScriptFinished = false
-        _G.TeleportState.IsRunning = false
-    end
+    task.wait(2)
+    f_Sho()
 end)
 
 v_Gui.ErrorMessageChanged:Connect(function(message)
-    if message and (string.match(string.lower(message), "server is full") or string.match(string.lower(message), "another server")) then
+    if message and #message > 0 then
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
-
-        if _G.TeleportState.TeleportRetries < _G.TeleportState.MaxRetries then
-            task.wait(1)
-            f_Sho()
-        else
-            _G.TeleportState.TeleportRetries = 0
-            _G.TeleportState.TeleportCheck = false
-            _G.TeleportState.ServerHopTimer = false
-            _G.TeleportState.ScriptFinished = false
-            _G.TeleportState.IsRunning = false
-        end
+        task.wait(2)
+        f_Sho()
     end
 end)
 
@@ -442,7 +425,7 @@ end
 
 -- DYNAMIC PING MEASUREMENT FOR LATENCY LEAD CALCULATION
 local function getPingInSeconds()
-    local ping = 0.1 -- 100ms fallback default
+    local ping = 0.1
     pcall(function()
         local dataPing = Stats.Network.ServerStatsItem["Data Ping"]
         if dataPing then
@@ -458,7 +441,7 @@ local function f_Wpy(target, duration)
     while elapsed < duration do
         local dt = v_Lmk.Heartbeat:Wait()
         elapsed = elapsed + dt
-        angle = angle + 4 * dt -- Orbit frequency
+        angle = angle + 4 * dt
 
         if not target or not target.Parent then break end
 
@@ -467,26 +450,20 @@ local function f_Wpy(target, duration)
 
         if myHrp and tgtHrp then
             pcall(function()
-                -- Get actual physics assembly root (properly tracks whole vehicle body if target is seated)
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                 local targetVel = targetAssembly.AssemblyLinearVelocity
 
-                -- Measure local player latency and scale prediction offset dynamically
                 local pingSec = getPingInSeconds()
                 local leadTime = (pingSec * 1.8) + 0.15 
                 
-                -- Predict future position along target's movement trajectory
                 local predictedPos = targetAssembly.Position + (targetVel * leadTime)
 
-                -- Directional lead vector to guarantee staying IN FRONT of their directional motion
                 local moveDir = targetVel.Magnitude > 2 and targetVel.Unit or targetAssembly.CFrame.LookVector
                 local leadFrontOffset = moveDir * math.clamp(targetVel.Magnitude * 0.25, 3, 15)
 
-                -- Zero out physics velocity to prevent local client drift
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
 
-                -- Orbit directly in front of their projected movement
                 local orbitRadius = 6
                 local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
 
