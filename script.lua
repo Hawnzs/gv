@@ -1,13 +1,13 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, then says "hi [FullName]" and teleports/spins around them.
+-- Target-Specific Mode: Idles at spawn until "avabow13" chats a target's name, then says "hi [FullName]" and teleports/spins around them. Resets on "stop".
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local TARGET_FPS = 15
+local TARGET_FPS = 120
 
--- Forceful 15 FPS Capper Runner
+-- Forceful 120 FPS Capper Runner
 task.spawn(function()
     while true do
         local t0 = tick()
@@ -459,15 +459,24 @@ local function getPingInSeconds()
     return math.clamp(ping, 0.05, 0.5)
 end
 
--- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "Sebassrebornnn"
+-- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "avabow13"
 local currentChatTarget = nil
 local currentChatTargetName = nil
 
--- CHAT LISTENER FOR SEBASSREBORNNN (Map-Wide Streaming Scanner)
+-- CHAT LISTENER FOR AVABOW13 (Map-Wide Streaming Scanner & Stop Command)
 local function handleChatInput(senderName, message)
-    if senderName:lower() == "sebassrebornnn" then
+    if senderName:lower() == "avabow13" then
         local trimmedMessage = message:match("^%s*(.-)%s*$"):lower()
         if trimmedMessage == "" then return end
+        
+        -- Check for "stop" command to reset tracking/target state
+        if trimmedMessage == "stop" then
+            currentChatTarget = nil
+            currentChatTargetName = nil
+            print("[GVS] Target cleared and reset by stop command.")
+            f_Nra("stopped")
+            return
+        end
         
         for _, p in ipairs(v_QpZ:GetPlayers()) do
             if p ~= plr then
@@ -477,28 +486,6 @@ local function handleChatInput(senderName, message)
                     currentChatTarget = p
                     currentChatTargetName = p.Name
                     print("[GVS] Locked global target username: " .. p.Name)
-                    
-                    -- AGGRESSIVE MAP STREAMING: Force stream bounds around where the player is expected to be
-                    task.spawn(function()
-                        for _ = 1, 5 do
-                            pcall(function()
-                                -- If character exists, stream directly around it
-                                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                                    workspace:RequestStreamAroundAsync(p.Character.HumanoidRootPart.Position, 50)
-                                else
-                                    -- If streamed out entirely, sweep grid points around common spawn/map coordinates to force replication
-                                    for x = -500, 500, 250 do
-                                        for z = -500, 500, 250 do
-                                            workspace:RequestStreamAroundAsync(Vector3.new(x, 10, z), 100)
-                                        end
-                                    end
-                                end
-                            end)
-                            task.wait(0.2)
-                            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then break end
-                        end
-                    end)
-                    
                     f_Nra("hi " .. p.Name)
                     break
                 end
@@ -532,46 +519,29 @@ else
     end)
 end
 
--- TRACKS TARGET GLOBALLY REGARDLESS OF MAP STREAMING STATE
-local function f_Ryn()
-    while true do
-        if currentChatTargetName then
-            local targetPlayer = v_QpZ:FindFirstChild(currentChatTargetName)
-            if targetPlayer then
-                local myHrp = f_Lzt()
-                local tgtHrp = f_Hbv(targetPlayer)
-                
-                -- If target is streamed out, fallback to checking if character model exists in-engine
-                if not tgtHrp and targetPlayer.Character then
-                    tgtHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart") or targetPlayer.Character:FindFirstChild("Head")
-                end
-
-                if myHrp and tgtHrp then
-                    pcall(function()
-                        myHrp.AssemblyLinearVelocity = Vector3.zero
-                        myHrp.AssemblyAngularVelocity = Vector3.zero
-                        -- Direct coordinate CFrame lock onto target
-                        myHrp.CFrame = tgtHrp.CFrame * CFrame.new(0, 3, 5)
-                    end)
-                else
-                    -- Target is completely out of client render bounds; try shifting local focus closer or wait
-                    pcall(function()
-                        plr.ReplicationFocus = targetPlayer.Character or workspace
-                    end)
-                end
-            else
-                currentChatTargetName = nil
-            end
-        end
-        task.wait(0.1)
-    end
-end
-
--- TELEPORT & FAST SPIN ORBIT HOOK WITH TRUE CLIENT REPLICATION FOCUS SCANNING
+-- TELEPORT & FAST SPIN ORBIT HOOK WITH MAP-WIDE CFRAME SWEEP FINDER
 local SPEED_THRESHOLD = 16
+
+-- Pre-defined grid coordinates covering typical map layouts to sweep search via CFrame teleporting
+local mapGridPoints = {
+    Vector3.new(0, 50, 0),
+    Vector3.new(500, 50, 0),
+    Vector3.new(-500, 50, 0),
+    Vector3.new(0, 50, 500),
+    Vector3.new(0, 50, -500),
+    Vector3.new(500, 50, 500),
+    Vector3.new(-500, 50, -500),
+    Vector3.new(1000, 50, 0),
+    Vector3.new(-1000, 50, 0),
+    Vector3.new(0, 50, 1000),
+    Vector3.new(0, 50, -1000),
+    Vector3.new(1000, 50, 1000),
+    Vector3.new(-1000, 50, -1000),
+}
 
 local function f_Wpy(target)
     local angle = 0
+    local gridIndex = 1
 
     while target and target.Parent and v_QpZ:FindFirstChild(target.Name) and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
@@ -580,7 +550,7 @@ local function f_Wpy(target)
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
-        -- If target character root part doesn't exist yet, force replication focus to sweep-locate them
+        -- If target root part isn't loaded/found yet, check character descendants
         if not tgtHrp and target.Character then
             tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head")
         end
@@ -588,7 +558,7 @@ local function f_Wpy(target)
         if myHrp then
             pcall(function()
                 if tgtHrp then
-                    -- Force client network replication focus directly onto the target position
+                    -- Target found! Force client replication focus and lock onto them with velocity prediction & orbit
                     plr.ReplicationFocus = tgtHrp
                     pcall(function()
                         plr:RequestStreamAroundAsync(tgtHrp.Position, 2)
@@ -620,11 +590,23 @@ local function f_Wpy(target)
                     local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
                     myHrp.CFrame = finalTargetCFrame
                 else
-                    -- Sweep search grid around map center to pull chunks in if target position is entirely unknown
-                    plr.ReplicationFocus = myHrp
-                    pcall(function()
-                        plr:RequestStreamAroundAsync(myHrp.Position + Vector3.new(math.random(-300, 300), 0, math.random(-300, 300)), 1)
-                    end)
+                    -- Target not loaded yet; actively CFrame sweep across map grid points to force-load and find them
+                    local sweepPos = mapGridPoints[gridIndex]
+                    if sweepPos then
+                        plr.ReplicationFocus = myHrp
+                        pcall(function()
+                            plr:RequestStreamAroundAsync(sweepPos, 100)
+                        end)
+                        myHrp.AssemblyLinearVelocity = Vector3.zero
+                        myHrp.AssemblyAngularVelocity = Vector3.zero
+                        myHrp.CFrame = CFrame.new(sweepPos + Vector3.new(0, 10, 0))
+
+                        gridIndex = gridIndex + 1
+                        if gridIndex > #mapGridPoints then
+                            gridIndex = 1
+                        end
+                    end
+                    task.wait(0.4)
                 end
             end)
         else
@@ -649,12 +631,12 @@ local success, err = pcall(function()
         task.wait(1)
     end
     
-    task.spawn(f_Ryn)
     while true do
         if currentChatTarget and currentChatTarget.Parent then
             f_Wpy(currentChatTarget)
         else
             currentChatTarget = nil
+            currentChatTargetName = nil
         end
         task.wait(0.5)
     end
