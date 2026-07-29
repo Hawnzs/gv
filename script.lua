@@ -1,5 +1,4 @@
--- FPS Capper & Teleport/Server-Hop Automation Script for Roblox
--- Combined with a tight 15 FPS rendering throttle
+-- FPS Capper & Teleport/Server-Hop Automation Script with Forced Chat UI Fix
 
 local RunService = game:GetService("RunService")
 local TARGET_FPS = 15
@@ -28,7 +27,6 @@ if type(_G.KeepInfYield) ~= "boolean" then
     _G.KeepInfYield = true
 end
 
--- FIXED: Store teleport state in _G so it persists across teleports
 if type(_G.TeleportState) ~= "table" then
     _G.TeleportState = {
         TeleportCheck = false,
@@ -45,15 +43,12 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
         if _G.KeepInfYield and not _G.TeleportState.TeleportCheck and queueteleport then
             _G.TeleportState.TeleportCheck = true
             _G.TeleportState.TeleportRetries = 0
-            -- UPDATED: Your new GitHub URL
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
 
-            -- FIXED: Reset all state when the script loads on the new server
             local payload = string.format([[
-                -- Reset all teleport state
                 if type(_G.TeleportState) ~= "table" then
                     _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
                 else
@@ -64,10 +59,8 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
                     _G.TeleportState.IsRunning = false
                 end
                 
-                -- Wait for character to fully load
                 task.wait(3)
                 
-                -- Reload the script with 'true' to force fresh download
                 task.delay(2, function()
                     _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
                     loadstring(game:HttpGet('%s', true))()
@@ -89,6 +82,16 @@ local v_Tps = game:GetService("TeleportService")
 local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
+
+-- FORCED CHAT UI FIX: Ensure CoreGui chat components are explicitly enabled and loaded
+task.spawn(function()
+    pcall(function()
+        v_Sgi:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+    end)
+    pcall(function()
+        v_Sgi:SetCore("ChatWindowVisible", true)
+    end)
+end)
 
 local function httpRequest(url)
     local success, result
@@ -113,7 +116,6 @@ local function httpRequest(url)
     return nil
 end
 
--- Prevent multiple instances running at once
 if _G.TeleportState.IsRunning then
     print("Script already running, waiting...")
     repeat task.wait(1) until not _G.TeleportState.IsRunning
@@ -123,7 +125,6 @@ _G.TeleportState.IsRunning = true
 local plr = v_QpZ.LocalPlayer
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
 
--- Wait for character to fully load
 task.wait(2)
 
 local title = plr:FindFirstChild("PlayerGui") and plr.PlayerGui:FindFirstChild("Title")
@@ -138,7 +139,6 @@ end
 if workspace.CurrentCamera then workspace.CurrentCamera:Destroy() end
 task.wait(0.1)
 
--- Wait for character and humanoid
 local attempts = 0
 repeat 
     task.wait(0.5)
@@ -150,12 +150,10 @@ repeat
     end
 until plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
 
--- Double check character exists
 if not plr.Character then
     plr.CharacterAdded:Wait()
 end
 
--- Camera setup
 local humanoid = plr.Character:FindFirstChildWhichIsA("Humanoid")
 if humanoid then
     workspace.CurrentCamera.CameraSubject = humanoid
@@ -178,7 +176,6 @@ local n_Tmo = 60
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
 
--- UPDATED: Your custom chat messages
 if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
         "/gvse",
@@ -215,7 +212,6 @@ local function f_Nra(s_Yui)
     end
 end
 
--- FIXED: Use _G.TeleportState for retry limiting
 local function f_Sho()
     if _G.TeleportState.TeleportRetries >= _G.TeleportState.MaxRetries then
         _G.TeleportState.TeleportRetries = 0
@@ -259,7 +255,6 @@ local function f_Sho()
     return false
 end
 
--- NEW: Function to force server hop when script finishes
 local function f_ForceHop()
     if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
         print("Script finished - forcing server hop!")
@@ -270,7 +265,6 @@ local function f_ForceHop()
     end
 end
 
--- 180-second safety net timer
 task.spawn(function()
     task.wait(180)
     if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
@@ -282,7 +276,6 @@ task.spawn(function()
     end
 end)
 
--- FIXED: Use _G.TeleportState for retry limiting
 v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
 
@@ -298,7 +291,6 @@ v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     end
 end)
 
--- FIXED: Use _G.TeleportState for retry limiting
 v_Gui.ErrorMessageChanged:Connect(function(message)
     if message and (string.match(string.lower(message), "server is full") or string.match(string.lower(message), "another server")) then
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
@@ -374,7 +366,6 @@ local function f_Kxs(visited)
 end
 
 local function f_Ryn()
-    -- Wait for character root part
     local hrp = f_Lzt()
     if not hrp then
         print("Waiting for HumanoidRootPart...")
@@ -445,9 +436,7 @@ local function f_Ryn()
     f_ForceHop()
 end
 
--- Main execution with error recovery
 local success, err = pcall(function()
-    -- Wait for character and root part
     if not (plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")) then
         print("Waiting for character...")
         plr.CharacterAdded:Wait()
@@ -463,9 +452,7 @@ end)
 if not success then
     print("Script error: " .. tostring(err))
     task.wait(2)
-    -- Try to recover by force hopping
     f_ForceHop()
 end
 
--- Clean up
 _G.TeleportState.IsRunning = false
