@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Uses Infinite Yield's flight forces to aggressively lunge and ram in/out violently during attacks.
+-- Added: "reset" command to force all targets / players to reset their characters.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -340,6 +340,22 @@ local function handleChatInput(senderName, message)
             return
         end
         
+        -- RESET COMMAND: Resets your character or current target's character (or all targets if specified)
+        if trimmedMessage == "reset" then
+            pcall(function()
+                if currentChatTarget and currentChatTarget.Character then
+                    local hum = currentChatTarget.Character:FindFirstChildWhichIsA("Humanoid")
+                    if hum then hum.Health = 0 end
+                else
+                    -- If no single target locked, reset your own character or broadcast reset action
+                    local myHum = plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
+                    if myHum then myHum.Health = 0 end
+                end
+            end)
+            f_Nra("reset executed")
+            return
+        end
+        
         local attackQuery = trimmedMessage:match("^attack%s+(.+)$")
         if attackQuery then
             for _, p in ipairs(v_QpZ:GetPlayers()) do
@@ -350,7 +366,7 @@ local function handleChatInput(senderName, message)
                         currentChatTarget = p
                         isAttacking = true
                         hasSaidHiForCurrentTarget = false 
-                        print("[GVS] Violent lunge attack target locked: " .. p.Name)
+                        print("[GVS] Violent attack target locked: " .. p.Name)
                         return
                     end
                 end
@@ -415,58 +431,70 @@ local function stopInfiniteYieldFly()
     if bv then bv:Destroy(); bv = nil end
 end
 
--- ORBIT & VIOLENT IN/OUT RAMMING LOOP
+local SPEED_THRESHOLD = 16 -- Normal walking speed threshold in studs/sec
+
+-- UNIFIED CLEAN VELOCITY-PREDICTED MOVEMENT LOOP (ORBIT & VIOLENT ATTACK)
 local function f_Wpy(target)
     local angle = 0
 
     while target and target.Parent and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
-        angle = angle + 10 * dt
+        angle = angle + (isAttacking and 14 or 4) * dt
 
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
-        if myHrp then
+        if myHrp and tgtHrp then
             startInfiniteYieldFly(myHrp)
             pcall(function()
-                if tgtHrp and tgtHrp.Parent then
-                    if not hasSaidHiForCurrentTarget and not isAttacking then
-                        hasSaidHiForCurrentTarget = true
-                        f_Nra("hi " .. target.Name)
-                    end
+                if not hasSaidHiForCurrentTarget and not isAttacking then
+                    hasSaidHiForCurrentTarget = true
+                    f_Nra("hi " .. target.Name)
+                end
 
-                    plr.ReplicationFocus = tgtHrp
-                    pcall(function() plr:RequestStreamAroundAsync(tgtHrp.Position, 16) end)
+                plr.ReplicationFocus = tgtHrp
+                pcall(function() plr:RequestStreamAroundAsync(tgtHrp.Position, 16) end)
 
-                    local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
-                    local targetVel = targetAssembly.AssemblyLinearVelocity
-                    local predictedPos = targetAssembly.Position + (targetVel * (getPingInSeconds() * 1.8 + 0.15))
+                local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
+                local targetVel = targetAssembly.AssemblyLinearVelocity
+                local targetSpeed = targetVel.Magnitude
 
-                    local targetPos
-                    if isAttacking then
-                        -- High-speed aggressive pulsing: repeatedly slam directly into target and dart backward instantly
-                        local ramCycle = math.sin(tick() * 12)
-                        local ramMultiplier = ramCycle > 0 and 1.2 or -3.5 -- Shoots way in, then shoots violently back out
-                        local ramOffset = Vector3.new(math.cos(angle) * (6 * ramMultiplier), math.sin(tick() * 20) * 4, math.sin(angle) * (6 * ramMultiplier))
-                        targetPos = predictedPos + ramOffset
-                    else
-                        local floatHeight = 2 + math.sin(tick() * 3) * 1
-                        targetPos = predictedPos + Vector3.new(math.cos(angle) * 6, floatHeight, math.sin(angle) * 6)
-                    end
+                local predictedPos = targetAssembly.Position
+                local leadFrontOffset = Vector3.zero
 
-                    local moveVector = (targetPos - myHrp.Position)
-                    if bv then
-                        bv.velocity = moveVector * (isAttacking and 35 or 14)
-                    end
-                    if bg then
-                        bg.cframe = CFrame.new(myHrp.Position, predictedPos)
-                    end
+                if targetSpeed > SPEED_THRESHOLD then
+                    local pingSec = getPingInSeconds()
+                    local leadTime = (pingSec * 1.8) + 0.15 
+                    
+                    predictedPos = targetAssembly.Position + (targetVel * leadTime)
+
+                    local moveDir = targetVel.Unit
+                    leadFrontOffset = moveDir * math.clamp(targetSpeed * 0.25, 3, 15)
+                end
+
+                local orbitRadius = 6
+                local orbitOffset
+                
+                if isAttacking then
+                    local pulse = math.sin(tick() * 12) * 6
+                    orbitOffset = Vector3.new(math.cos(angle) * (orbitRadius + pulse), math.sin(tick() * 20) * 3, math.sin(angle) * (orbitRadius + pulse))
                 else
-                    stopInfiniteYieldFly()
+                    orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
+                end
+
+                local finalTargetPos = predictedPos + leadFrontOffset + orbitOffset
+                local moveVector = (finalTargetPos - myHrp.Position)
+
+                if bv then
+                    bv.velocity = moveVector * (isAttacking and 30 or 14)
+                end
+                if bg then
+                    bg.cframe = CFrame.new(myHrp.Position, predictedPos)
                 end
             end)
         else
             stopInfiniteYieldFly()
+            break
         end
     end
 
