@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, then says "hi [FullName]" and tracks them.
+-- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, then says "hi [FullName]" and teleports/spins around them.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -501,7 +501,7 @@ else
     end)
 end
 
--- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK
+-- TELEPORT & FAST SPIN ORBIT HOOK
 local SPEED_THRESHOLD = 16
 
 local function f_Wpy(target)
@@ -509,7 +509,7 @@ local function f_Wpy(target)
 
     while target and target.Parent and v_QpZ:FindFirstChild(target.Name) and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
-        angle = angle + 4 * dt
+        angle = angle + 12 * dt -- Faster spin speed around target
 
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
@@ -536,9 +536,10 @@ local function f_Wpy(target)
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
 
-                local orbitRadius = 6
-                local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
+                local orbitRadius = 5 -- Close distance orbit
+                local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 2, math.sin(angle) * orbitRadius)
 
+                -- Directly Teleport/Position right onto them dynamically in an orbit
                 local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
                 myHrp.CFrame = finalTargetCFrame
             end)
