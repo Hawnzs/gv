@@ -1,5 +1,5 @@
--- FPS Capper & Continuous Target Following Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Continuously tracks and follows "NoahBatmanSam" until they leave the server.
+-- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
+-- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, then says "hi [FullName]" and tracks them.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -371,23 +371,8 @@ plr.CameraMode = "Classic"
 local head = plr.Character:FindFirstChild("Head")
 if head then head.Anchored = false end
 
-local n_Gxb = 120
-local n_Vcs = 0.06
-local n_Iuw = 40
-local n_Zmq2 = 50
-
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
-
-if type(_G.t_Fjd) ~= "table" then 
-    _G.t_Fjd = {
-        "/gvse",
-        "broke? /gvse",
-        "slow cars? /gvse",
-        "want to larp? /gvse",
-    }
-end
-local t_Fjd = _G.t_Fjd
 
 local b_Oek = v_Rtd.ChatVersion == Enum.ChatVersion.LegacyChatService
 
@@ -460,29 +445,6 @@ end)
 local function f_Hbv(p) return p.Character and p.Character:FindFirstChild("HumanoidRootPart") end
 local function f_Lzt() return f_Hbv(plr) end
 
-local function f_Mqe(pos)
-    local hrp = f_Lzt()
-    if not hrp then return end
-    pcall(function()
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
-        hrp.CFrame = CFrame.new(pos)
-    end)
-    task.wait(n_Vcs)
-end
-
-local function f_Dvi()
-    local t_Sog = {Vector2.new(0,0)}
-    for i = 1, n_Iuw do
-        local x,z = -i, -i
-        for _=1,2*i do z=z+1; table.insert(t_Sog, Vector2.new(x,z)) end
-        for _=1,2*i do x=x+1; table.insert(t_Sog, Vector2.new(x,z)) end
-        for _=1,2*i do z=z-1; table.insert(t_Sog, Vector2.new(x,z)) end
-        for _=1,2*i do x=x-1; table.insert(t_Sog, Vector2.new(x,z)) end
-    end
-    return t_Sog
-end
-
 -- DYNAMIC PING MEASUREMENT FOR LATENCY LEAD CALCULATION
 local function getPingInSeconds()
     local ping = 0.1
@@ -495,14 +457,54 @@ local function getPingInSeconds()
     return math.clamp(ping, 0.05, 0.5)
 end
 
--- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK (INFINITE LOOP UNTIL TARGET LEAVES)
-local SPEED_THRESHOLD = 16 -- Normal walking speed threshold in studs/sec
+-- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "Sebassrebornnn"
+local currentChatTarget = nil
+
+-- CHAT LISTENER FOR SEBASSREBORNNN
+local function handleChatInput(senderName, message)
+    if senderName == "Sebassrebornnn" then
+        local trimmedMessage = message:match("^%s*(.-)%s*$")
+        for _, p in ipairs(v_QpZ:GetPlayers()) do
+            if p.Name:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() or p.DisplayName:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() then
+                currentChatTarget = p
+                print("[GVS] Target updated to: " .. p.Name)
+                -- Say "hi [FullName]" using their full username
+                f_Nra("hi " .. p.Name)
+                break
+            end
+        end
+    end
+end
+
+-- Setup Legacy & TextChatService listeners
+if b_Oek then
+    for _, p in ipairs(v_QpZ:GetPlayers()) do
+        p.Chatted:Connect(function(msg)
+            handleChatInput(p.Name, msg)
+        end)
+    end
+    v_QpZ.PlayerAdded:Connect(function(p)
+        p.Chatted:Connect(function(msg)
+            handleChatInput(p.Name, msg)
+        end)
+    end)
+else
+    pcall(function()
+        v_Rtd.MessageReceived:Connect(function(textMessage)
+            if textMessage.SourcePlayer then
+                handleChatInput(textMessage.SourcePlayer.Name, textMessage.Text)
+            end
+        end)
+    end)
+end
+
+-- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK
+local SPEED_THRESHOLD = 16
 
 local function f_Wpy(target)
     local angle = 0
-    local chatted = false
 
-    while target and target.Parent and v_QpZ:FindFirstChild(target.Name) do
+    while target and target.Parent and v_QpZ:FindFirstChild(target.Name) and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
         angle = angle + 4 * dt
 
@@ -510,14 +512,6 @@ local function f_Wpy(target)
         local tgtHrp = f_Hbv(target)
 
         if myHrp and tgtHrp then
-            -- Chat once when we lock on / start following
-            if not chatted then
-                chatted = true
-                if t_Fjd and #t_Fjd > 0 then 
-                    f_Nra(t_Fjd[math.random(#t_Fjd)]) 
-                end
-            end
-
             pcall(function()
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                 local targetVel = targetAssembly.AssemblyLinearVelocity
@@ -526,7 +520,6 @@ local function f_Wpy(target)
                 local predictedPos = targetAssembly.Position
                 local leadFrontOffset = Vector3.zero
 
-                -- Only compensate if moving faster than standard walking speed (16 studs/sec)
                 if targetSpeed > SPEED_THRESHOLD then
                     local pingSec = getPingInSeconds()
                     local leadTime = (pingSec * 1.8) + 0.15 
@@ -552,59 +545,15 @@ local function f_Wpy(target)
     end
 end
 
--- SEARCH / SPIRAL UNTIL "NoahBatmanSam" IS FOUND IN THE SERVER
+-- IDLE AT SPAWN UNTIL SEBASSREBORNNN CHATS A TARGET
 local function f_Ryn()
-    local hrp = f_Lzt()
-    if not hrp then
-        print("Waiting for HumanoidRootPart...")
-        repeat 
-            task.wait(0.5)
-            hrp = f_Lzt()
-        until hrp
-    end
-    
-    local startHrp = hrp
-    if not startHrp then return end
-    
-    local origin = startHrp.Position
-
     while true do
-        -- Check if target is already in the server and loaded
-        local target = v_QpZ:FindFirstChild("NoahBatmanSam")
-        if target and f_Hbv(target) then
-            -- Constantly follow them indefinitely until they leave the server
-            f_Wpy(target)
+        if currentChatTarget and currentChatTarget.Parent and f_Hbv(currentChatTarget) then
+            f_Wpy(currentChatTarget)
+        else
+            currentChatTarget = nil
         end
-
-        -- If not found, run a spiral scan search loop
-        local spiral = f_Dvi()
-        local foundTarget = false
-
-        for _, cell in ipairs(spiral) do
-            -- Re-check if target joined while searching
-            target = v_QpZ:FindFirstChild("NoahBatmanSam")
-            if target and f_Hbv(target) then
-                foundTarget = true
-                break
-            end
-
-            local pos = origin + Vector3.new(cell.X * n_Gxb, n_Zmq2, cell.Y * n_Gxb)
-            f_Mqe(pos)
-
-            local curHrp = f_Lzt()
-            if curHrp then origin = curHrp.Position end
-        end
-
-        if foundTarget then
-            continue
-        end
-
-        -- If spiral completes and target is still not found in this server, server hop to find them
-        print("Target not found in current server - server hopping...")
-        if f_Sho() then
-            return
-        end
-        task.wait(2)
+        task.wait(0.5)
     end
 end
 
@@ -624,7 +573,7 @@ end)
 if not success then
     print("Script error: " .. tostring(err))
     task.wait(2)
-    f_Sho()
+    f_ForceHop()
 end
 
 _G.TeleportState.IsRunning = false
