@@ -5,11 +5,11 @@ local TARGET_FPS = 15
 
 -- Forceful 15 FPS Capper Runner
 task.spawn(function()
-	while true do
-		local t0 = tick()
-		RunService.RenderStepped:Wait()
-		repeat until (t0 + 1 / TARGET_FPS) < tick()
-	end
+    while true do
+        local t0 = tick()
+        RunService.RenderStepped:Wait()
+        repeat until (t0 + 1 / TARGET_FPS) < tick()
+    end
 end)
 
 local function missing(expectedType, value, fallback)
@@ -46,8 +46,7 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
-            local encodedChats = game:GetService("HttpService"):JSONDecode and game:GetService("HttpService"):JSONEncode(currentChats) or "[]"
-
+            local encodedChats = currentChats and HttpService:JSONEncode(currentChats) or "[]"
             local payload = string.format([[
                 if type(_G.TeleportState) ~= "table" then
                     _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
@@ -341,7 +340,6 @@ local function f_Dvi()
 end
 
 local function f_Wpy(target, duration)
-    if t_Fjd and #t_Fjd > 0 then f_Nra(t_Fjd[math.random(#t_Fjd)]) end
     local elapsed, angle = 0, 0
     while elapsed < duration do
         local dt = v_Lmk.Heartbeat:Wait()
@@ -387,11 +385,18 @@ local function f_Ryn()
     local origin = startHrp.Position
     local total = #v_QpZ:GetPlayers() - 1
     local visited = {}
+    local chattedPlayers = {}
     local found = 0
     local lastFound = os.clock()
 
     for _, p in ipairs(f_Kxs(visited)) do
         visited[p] = true; found = found + 1
+        
+        if not chattedPlayers[p] then
+            chattedPlayers[p] = true
+            if t_Fjd and #t_Fjd > 0 then f_Nra(t_Fjd[math.random(#t_Fjd)]) end
+        end
+
         f_Wpy(p, n_Ptl)
         lastFound = os.clock()
     end
@@ -424,6 +429,12 @@ local function f_Ryn()
 
             for _, p in ipairs(f_Kxs(visited)) do
                 visited[p] = true; found = found + 1
+                
+                if not chattedPlayers[p] then
+                    chattedPlayers[p] = true
+                    if t_Fjd and #t_Fjd > 0 then f_Nra(t_Fjd[math.random(#t_Fjd)]) end
+                end
+
                 f_Wpy(p, n_Ptl)
                 lastFound = os.clock()
                 local curHrp = f_Lzt()
