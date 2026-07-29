@@ -1,9 +1,9 @@
--- FPS Capper & Teleport Automation Script with "Greenville Services" Loader → Widget
+-- FPS Capper & Teleport Automation Script with "Greenville Services" Minimal Loader
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 local TARGET_FPS = 15
 
 -- Forceful 15 FPS Capper Runner
@@ -82,154 +82,138 @@ local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer or v_QpZ.PlayerAdded:Wait()
 
--- GREENVILLE SERVICES — LOADER → WIDGET UI
+-- GREENVILLE SERVICES — MINIMAL LOADER UI
 task.spawn(function()
     pcall(function()
         local playerGui = plr:WaitForChild("PlayerGui", 10)
         if not playerGui then return end
 
-        local CFG = {
-            TITLE   = "Greenville Services",
-            FONT    = "rbxasset://fonts/families/JosefinSans.json",
-            ACCENT  = Color3.fromRGB(0, 255, 170),
-            PANEL   = Color3.fromRGB(12, 16, 14),
-            TEXT    = Color3.fromRGB(240, 255, 250),
-            MUTED   = Color3.fromRGB(110, 140, 128),
+        local TITLE  = "Greenville Services"
+        local FONT   = "rbxasset://fonts/families/JosefinSans.json"
+        local ACCENT = Color3.fromRGB(0, 255, 170)
+        local TIME   = 2.6
+        local WIDGET = true
 
-            LOAD_W  = 300,
-            LOAD_H  = 54,
-            LOAD_TS = 20,
+        local FONT_B = Font.new(FONT, Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 
-            DOCK_W  = 210,
-            DOCK_H  = 45,
-            DOCK_TS = 18,
-            MARGIN  = 20,
-
-            DRAGGABLE = true,
-        }
-
-        local STEPS = {
-            { "Connecting",      0.55 },
-            { "Authenticating",  0.65 },
-            { "Loading modules", 0.70 },
-            { "Almost there",    0.50 },
-        }
-
-        local FONT_B = Font.new(CFG.FONT, Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-        local FONT_R = Font.new(CFG.FONT, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-
-        local function new(class, props, parent)
-            local i = Instance.new(class)
-            for k, v in pairs(props) do i[k] = v end
+        local function new(c, p, parent)
+            local i = Instance.new(c)
+            for k, v in pairs(p) do i[k] = v end
             if parent then i.Parent = parent end
             return i
         end
-
-        local function tw(obj, time, style, dir, goal, delayTime)
-            local t = TweenService:Create(obj,
-                TweenInfo.new(time, style, dir, 0, false, delayTime or 0), goal)
-            t:Play()
-            return t
+        local function tw(o, t, s, d, g, dl)
+            local x = TweenService:Create(o, TweenInfo.new(t, s, d, 0, false, dl or 0), g)
+            x:Play(); return x
         end
+        local Q, OUT, IN = Enum.EasingStyle.Quint, Enum.EasingDirection.Out, Enum.EasingDirection.In
 
         local gui = new("ScreenGui", {
-            Name = "GreenvilleServicesWidget",
+            Name = "GVSLoader",
             IgnoreGuiInset = true,
             ResetOnSpawn = false,
             DisplayOrder = 999999,
-            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         }, playerGui)
 
-        local pill = new("Frame", {
-            Name = "Pill",
-            Size = UDim2.fromOffset(CFG.LOAD_W, CFG.LOAD_H),
-            Position = UDim2.new(0.5, 0, 0.5, 14),
+        local dim = new("Frame", {
+            Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+        }, gui)
+
+        local label = new("TextLabel", {
+            Size = UDim2.fromOffset(400, 26),
+            Position = UDim2.new(0.5, 0, 0.5, -10),
             AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundColor3 = CFG.PANEL,
+            BackgroundTransparency = 1,
+            Text = TITLE,
+            FontFace = FONT_B,
+            TextSize = 20,
+            TextColor3 = Color3.fromRGB(245, 248, 246),
+            TextTransparency = 1,
+        }, gui)
+
+        local track = new("Frame", {
+            Size = UDim2.fromOffset(140, 1),
+            Position = UDim2.new(0.5, 0, 0.5, 16),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+        }, gui)
+
+        local fill = new("Frame", {
+            Size = UDim2.fromScale(0, 1),
+            BackgroundColor3 = ACCENT,
+            BorderSizePixel = 0,
+        }, track)
+
+        -- in
+        tw(dim,   0.4, Q, OUT, { BackgroundTransparency = 0.55 })
+        tw(label, 0.5, Q, OUT, { TextTransparency = 0 }, 0.1)
+        tw(track, 0.5, Q, OUT, { BackgroundTransparency = 0.88 }, 0.15)
+
+        -- fill
+        tw(fill, TIME, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut,
+            { Size = UDim2.fromScale(1, 1) }, 0.4)
+
+        task.wait(TIME + 0.7)
+
+        -- out
+        tw(dim,   0.35, Q, IN, { BackgroundTransparency = 1 })
+        tw(label, 0.3,  Q, IN, { TextTransparency = 1 })
+        tw(track, 0.3,  Q, IN, { BackgroundTransparency = 1 })
+        tw(fill,  0.3,  Q, IN, { BackgroundTransparency = 1 })
+
+        task.delay(0.45, function()
+            dim:Destroy(); label:Destroy(); track:Destroy()
+        end)
+
+        -- widget
+        if not WIDGET then return end
+        task.wait(0.35)
+
+        local pill = new("Frame", {
+            Name = "WidgetContainer",
+            Size = UDim2.fromOffset(210, 45),
+            Position = UDim2.new(1, -20, 0, 8),
+            AnchorPoint = Vector2.new(1, 0),
+            BackgroundColor3 = Color3.fromRGB(12, 16, 14),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
         }, gui)
         new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, pill)
-
-        local stroke = new("UIStroke", {
-            Color = CFG.ACCENT,
-            Thickness = 1.5,
-            Transparency = 1,
-        }, pill)
+        local pillStroke = new("UIStroke", { Color = ACCENT, Thickness = 1.5, Transparency = 1 }, pill)
 
         local dot = new("Frame", {
             Name = "StatusDot",
             Size = UDim2.fromOffset(10, 10),
             Position = UDim2.new(0, 16, 0.5, -5),
-            BackgroundColor3 = CFG.ACCENT,
+            BackgroundColor3 = ACCENT,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            ZIndex = 3,
         }, pill)
         new("UICorner", { CornerRadius = UDim.new(1, 0) }, dot)
 
-        local ringHost = new("Frame", {
-            Size = UDim2.fromOffset(10, 10),
-            Position = UDim2.new(0, 16, 0.5, -5),
-            BackgroundTransparency = 1,
-            ZIndex = 2,
-        }, pill)
-
-        local title = new("TextLabel", {
+        local text = new("TextLabel", {
             Name = "WidgetText",
             Size = UDim2.new(1, -46, 1, 0),
             Position = UDim2.fromOffset(35, 0),
             BackgroundTransparency = 1,
-            Text = CFG.TITLE,
+            Text = TITLE,
             FontFace = FONT_B,
-            TextSize = CFG.LOAD_TS,
-            TextColor3 = CFG.TEXT,
+            TextSize = 18,
+            TextColor3 = Color3.fromRGB(240, 255, 250),
             TextTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 3,
         }, pill)
 
-        local caption = new("TextLabel", {
-            Size = UDim2.fromOffset(CFG.LOAD_W, 18),
-            Position = UDim2.new(0.5, 0, 0.5, 14 + CFG.LOAD_H / 2 + 18),
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundTransparency = 1,
-            Text = STEPS[1][1],
-            FontFace = FONT_R,
-            TextSize = 13,
-            TextColor3 = CFG.MUTED,
-            TextTransparency = 1,
-        }, gui)
+        tw(pill, 0.5, Q, OUT, { BackgroundTransparency = 0.15, Position = UDim2.new(1, -20, 0, 20) })
+        tw(pillStroke, 0.5, Q, OUT, { Transparency = 0.2 })
+        tw(text, 0.5, Q, OUT, { TextTransparency = 0 })
+        tw(dot,  0.5, Q, OUT, { BackgroundTransparency = 0 })
 
-        local track = new("Frame", {
-            Size = UDim2.fromOffset(CFG.LOAD_W - 40, 2),
-            Position = UDim2.new(0.5, 0, 0.5, 14 + CFG.LOAD_H / 2 + 40),
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundColor3 = CFG.ACCENT,
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-        }, gui)
-        new("UICorner", { CornerRadius = UDim.new(1, 0) }, track)
-
-        local fill = new("Frame", {
-            Size = UDim2.fromScale(0, 1),
-            BackgroundColor3 = CFG.ACCENT,
-            BorderSizePixel = 0,
-        }, track)
-        new("UICorner", { CornerRadius = UDim.new(1, 0) }, fill)
-
-        -- Entrance
-        local IN = { 0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out }
-        tw(pill, IN[1], IN[2], IN[3], { BackgroundTransparency = 0.15, Position = UDim2.fromScale(0.5, 0.5) })
-        tw(stroke, IN[1], IN[2], IN[3], { Transparency = 0.2 })
-        tw(title, IN[1], IN[2], IN[3], { TextTransparency = 0 })
-        tw(dot, IN[1], IN[2], IN[3], { BackgroundTransparency = 0 })
-        tw(caption, 0.5, IN[2], IN[3], { TextTransparency = 0.15,
-            Position = UDim2.new(0.5, 0, 0.5, CFG.LOAD_H / 2 + 18) }, 0.15)
-        tw(track, 0.5, IN[2], IN[3], { BackgroundTransparency = 0.85,
-            Position = UDim2.new(0.5, 0, 0.5, CFG.LOAD_H / 2 + 40) }, 0.15)
-
-        -- Ambient loops
         task.spawn(function()
             while gui.Parent do
                 tw(dot, 0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, { BackgroundTransparency = 0.6 })
@@ -239,120 +223,6 @@ task.spawn(function()
             end
         end)
 
-        task.spawn(function()
-            task.wait(0.6)
-            while gui.Parent do
-                local ring = new("Frame", {
-                    Size = UDim2.fromOffset(10, 10),
-                    Position = UDim2.fromScale(0.5, 0.5),
-                    AnchorPoint = Vector2.new(0.5, 0.5),
-                    BackgroundTransparency = 1,
-                    ZIndex = 2,
-                }, ringHost)
-                new("UICorner", { CornerRadius = UDim.new(1, 0) }, ring)
-                local rs = new("UIStroke", { Color = CFG.ACCENT, Thickness = 1.5, Transparency = 0.3 }, ring)
-
-                tw(ring, 1.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, { Size = UDim2.fromOffset(30, 30) })
-                tw(rs, 1.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 1, Thickness = 0 })
-                task.delay(1.7, function() if ring then ring:Destroy() end end)
-                task.wait(1.9)
-            end
-        end)
-
-        -- Fake load sequence
-        local function setCaption(text)
-            tw(caption, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out,
-                { TextTransparency = 1 }).Completed:Once(function()
-                caption.Text = text
-                tw(caption, 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { TextTransparency = 0.15 })
-            end)
-        end
-
-        task.wait(0.45)
-        for i, step in ipairs(STEPS) do
-            setCaption(step[1])
-            tw(fill, step[2] * 0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut,
-                { Size = UDim2.fromScale(i / #STEPS, 1) })
-            task.wait(step[2])
-        end
-        setCaption("Ready")
-        task.wait(0.45)
-
-        -- Docking
-        local OUT = { 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In }
-        tw(caption, OUT[1], OUT[2], OUT[3], { TextTransparency = 1 })
-        tw(track, OUT[1], OUT[2], OUT[3], { BackgroundTransparency = 1 })
-        tw(fill, OUT[1], OUT[2], OUT[3], { BackgroundTransparency = 1 })
-        task.delay(0.5, function()
-            if caption then caption:Destroy() end
-            if track then track:Destroy() end
-        end)
-
-        task.wait(0.15)
-
-        tw(stroke, 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0, Thickness = 3 })
-        task.delay(0.2, function()
-            tw(stroke, 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0.2, Thickness = 1.5 })
-        end)
-
-        local DOCK_POS = UDim2.new(
-            1, -CFG.MARGIN - CFG.DOCK_W / 2,
-            0,  CFG.MARGIN + CFG.DOCK_H / 2
-        )
-
-        local FLY = TweenInfo.new(0.85, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
-        TweenService:Create(pill, FLY, {
-            Position = DOCK_POS,
-            Size = UDim2.fromOffset(CFG.DOCK_W, CFG.DOCK_H),
-        }):Play()
-        TweenService:Create(title, FLY, { TextSize = CFG.DOCK_TS }):Play()
-
-        task.wait(0.85)
-
-        tw(pill, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out,
-            { Size = UDim2.fromOffset(CFG.DOCK_W, CFG.DOCK_H) })
-
-        -- Docked interactivity
-        pill.Active = true
-
-        pill.MouseEnter:Connect(function()
-            tw(stroke, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0, Thickness = 2 })
-            tw(pill, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 0.05 })
-        end)
-        pill.MouseLeave:Connect(function()
-            tw(stroke, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0.2, Thickness = 1.5 })
-            tw(pill, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 0.15 })
-        end)
-
-        if CFG.DRAGGABLE then
-            local dragging, dragStart, startPos = false, nil, nil
-
-            pill.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                    dragStart = input.Position
-                    startPos = pill.Position
-                    input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            dragging = false
-                        end
-                    end)
-                end
-            end)
-
-            UserInputService.InputChanged:Connect(function(input)
-                if not dragging then return end
-                if input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch then
-                    local d = input.Position - dragStart
-                    pill.Position = UDim2.new(
-                        startPos.X.Scale, startPos.X.Offset + d.X,
-                        startPos.Y.Scale, startPos.Y.Offset + d.Y
-                    )
-                end
-            end)
-        end
     end)
 end)
 
