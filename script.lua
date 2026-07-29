@@ -75,25 +75,6 @@ local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 
--- ANTI-AFK: Prevents 20-minute idle disconnect
-local function antiAFK()
-    local v_Input = game:GetService("VirtualUser")
-    if v_Input then
-        task.spawn(function()
-            while task.wait(60) do
-                pcall(function()
-                    v_Input:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                    task.wait(0.1)
-                    v_Input:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                    v_Input:MouseMove(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                    task.wait(0.1)
-                    v_Input:MouseMove(Vector2.new(100,100), workspace.CurrentCamera.CFrame)
-                end)
-            end
-        end)
-    end
-end
-
 local function httpRequest(url)
     local success, result
     success, result = pcall(function() return game:HttpGet(url) end)
@@ -123,9 +104,6 @@ if _G.TeleportState.IsRunning then
     repeat task.wait(1) until not _G.TeleportState.IsRunning
 end
 _G.TeleportState.IsRunning = true
-
--- Start anti-AFK
-antiAFK()
 
 local plr = v_QpZ.LocalPlayer
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
@@ -286,39 +264,6 @@ task.spawn(function()
         _G.TeleportState.ScriptFinished = true
         _G.TeleportState.IsRunning = false
         f_Sho()
-    end
-end)
-
--- NEW: 10-MINUTE FORCE HOP FALLBACK (prevents 20-min idle disconnect)
-task.spawn(function()
-    task.wait(600) -- 10 minutes
-    if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
-        print("10 MINUTES PASSED - FORCE HOPPING FALLBACK!")
-        _G.TeleportState.ServerHopTimer = true
-        _G.TeleportState.ScriptFinished = true
-        _G.TeleportState.IsRunning = false
-        
-        -- Try API first
-        local success = f_Sho()
-        if not success then
-            print("API failed, using direct teleport fallback!")
-            -- Direct teleport to any available server
-            local servers = httpRequest("https://games.roblox.com/v1/games/" .. id_Plc .. "/servers/Public?sortOrder=Desc&limit=100")
-            if servers then
-                local decoded = v_Hts:JSONDecode(servers)
-                if decoded and decoded.data and #decoded.data > 0 then
-                    for _, server in ipairs(decoded.data) do
-                        if server and server.id and server.id ~= id_Job then
-                            if not server.playing or server.playing < (server.maxPlayers or 100) then
-                                print("Found server: " .. server.id)
-                                v_Tps:TeleportToPlaceInstance(id_Plc, server.id, plr)
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end
     end
 end)
 
