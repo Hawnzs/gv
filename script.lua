@@ -467,6 +467,8 @@ local function getPingInSeconds()
 end
 
 -- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK
+local SPEED_THRESHOLD = 16 -- Normal walking speed threshold in studs/sec
+
 local function f_Wpy(target, duration)
     local elapsed, angle = 0, 0
     while elapsed < duration do
@@ -483,14 +485,21 @@ local function f_Wpy(target, duration)
             pcall(function()
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                 local targetVel = targetAssembly.AssemblyLinearVelocity
+                local targetSpeed = targetVel.Magnitude
 
-                local pingSec = getPingInSeconds()
-                local leadTime = (pingSec * 1.8) + 0.15 
-                
-                local predictedPos = targetAssembly.Position + (targetVel * leadTime)
+                local predictedPos = targetAssembly.Position
+                local leadFrontOffset = Vector3.zero
 
-                local moveDir = targetVel.Magnitude > 2 and targetVel.Unit or targetAssembly.CFrame.LookVector
-                local leadFrontOffset = moveDir * math.clamp(targetVel.Magnitude * 0.25, 3, 15)
+                -- Only compensate if moving faster than standard walking speed (16 studs/sec)
+                if targetSpeed > SPEED_THRESHOLD then
+                    local pingSec = getPingInSeconds()
+                    local leadTime = (pingSec * 1.8) + 0.15 
+                    
+                    predictedPos = targetAssembly.Position + (targetVel * leadTime)
+
+                    local moveDir = targetVel.Unit
+                    leadFrontOffset = moveDir * math.clamp(targetSpeed * 0.25, 3, 15)
+                end
 
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
