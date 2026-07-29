@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Added: "attack [username]" command for violent spazzing behavior.
+-- Target-Specific Mode: Uses Infinite Yield's "fly" mechanics (body velocity/forces) to smoothly fly around or violently spazz at targets instead of CFrame teleporting.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -16,7 +16,6 @@ task.spawn(function()
     end
 end)
 
--- Bulletproof queue_on_teleport function resolver
 local queueteleport = queue_on_teleport 
     or (syn and syn.queue_on_teleport) 
     or (fluxus and fluxus.queue_on_teleport) 
@@ -341,7 +340,6 @@ local function handleChatInput(senderName, message)
             return
         end
         
-        -- Check for "attack [username]" command format
         local attackQuery = trimmedMessage:match("^attack%s+(.+)$")
         if attackQuery then
             for _, p in ipairs(v_QpZ:GetPlayers()) do
@@ -352,14 +350,13 @@ local function handleChatInput(senderName, message)
                         currentChatTarget = p
                         isAttacking = true
                         hasSaidHiForCurrentTarget = false 
-                        print("[GVS] Violent attack target locked: " .. p.Name)
+                        print("[GVS] Violent attack target locked via fly: " .. p.Name)
                         return
                     end
                 end
             end
         end
         
-        -- Default target lock via chat name
         for _, p in ipairs(v_QpZ:GetPlayers()) do
             if p ~= plr then
                 local pName = p.Name:lower()
@@ -395,28 +392,42 @@ else
     end)
 end
 
-local SPEED_THRESHOLD = 16
-local mapGridPoints = {}
-for _, x in ipairs({-1200, -800, -400, 0, 400, 800, 1200}) do
-    for _, z in ipairs({-1200, -800, -400, 0, 400, 800, 1200}) do
-        table.insert(mapGridPoints, Vector3.new(x, 50, z))
-        table.insert(mapGridPoints, Vector3.new(x, 250, z))
+-- INFINITE YIELD FLY ENGINE SETUP
+local bg, bv
+local function startInfiniteYieldFly(hrp)
+    if not hrp then return end
+    if not bg then
+        bg = Instance.new("BodyGyro")
+        bg.P = 9e4
+        bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bg.Parent = hrp
+    end
+    if not bv then
+        bv = Instance.new("BodyVelocity")
+        bv.velocity = Vector3.new(0, 0, 0)
+        bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Parent = hrp
     end
 end
 
--- ORBIT & VIOLENT ATTACK LOOP
+local function stopInfiniteYieldFly()
+    if bg then bg:Destroy(); bg = nil end
+    if bv then bv:Destroy(); bv = nil end
+end
+
+-- ORBIT & ATTACK VIA INFINITE YIELD FLY FORCES
 local function f_Wpy(target)
     local angle = 0
-    local gridIndex = 1
 
     while target and target.Parent and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
-        angle = angle + (isAttacking and 35 or 8) * dt -- Hyper-fast rotation if attacking
+        angle = angle + (isAttacking and 45 or 10) * dt
 
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
         if myHrp then
+            startInfiniteYieldFly(myHrp)
             pcall(function()
                 if tgtHrp and tgtHrp.Parent then
                     if not hasSaidHiForCurrentTarget and not isAttacking then
@@ -429,51 +440,34 @@ local function f_Wpy(target)
 
                     local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                     local targetVel = targetAssembly.AssemblyLinearVelocity
-                    local targetSpeed = targetVel.Magnitude
+                    local predictedPos = targetAssembly.Position + (targetVel * (getPingInSeconds() * 1.8 + 0.15))
 
-                    local predictedPos = targetAssembly.Position
-                    if targetSpeed > SPEED_THRESHOLD then
-                        local pingSec = getPingInSeconds()
-                        local leadTime = (pingSec * 1.8) + 0.15 
-                        predictedPos = targetAssembly.Position + (targetVel * leadTime)
-                    end
-
-                    myHrp.AssemblyLinearVelocity = Vector3.zero
-                    myHrp.AssemblyAngularVelocity = Vector3.zero
-
-                    local finalTargetCFrame
+                    local targetPos
                     if isAttacking then
-                        -- VIOLENT SPAZZ MOTION: Random high-frequency positional shaking + rapid spinning around target
-                        local randomJitter = Vector3.new(math.random(-4, 4), math.random(-2, 4), math.random(-4, 4))
-                        local spazzRadius = 3
-                        local orbitOffset = Vector3.new(math.cos(angle) * spazzRadius, math.sin(tick() * 25) * 2, math.sin(angle) * spazzRadius)
-                        finalTargetCFrame = CFrame.new(predictedPos + orbitOffset + randomJitter, predictedPos + Vector3.new(math.random(-1,1), 0, math.random(-1,1)))
+                        local randomJitter = Vector3.new(math.random(-5, 5), math.random(-3, 5), math.random(-5, 5))
+                        targetPos = predictedPos + Vector3.new(math.cos(angle) * 4, math.sin(tick() * 30) * 3, math.sin(angle) * 4) + randomJitter
                     else
-                        -- Standard smooth floating orbit
-                        local floatHeight = 2 + math.sin(tick() * 3) * 0.75
-                        local orbitRadius = 6
-                        local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, floatHeight, math.sin(angle) * orbitRadius)
-                        finalTargetCFrame = CFrame.new(predictedPos + orbitOffset, predictedPos)
+                        local floatHeight = 2 + math.sin(tick() * 3) * 1
+                        targetPos = predictedPos + Vector3.new(math.cos(angle) * 6, floatHeight, math.sin(angle) * 6)
                     end
 
-                    myHrp.CFrame = myHrp.CFrame:Lerp(finalTargetCFrame, math.clamp(dt * (isAttacking and 30 or 12), 0, 1))
+                    local moveVector = (targetPos - myHrp.Position)
+                    if bv then
+                        bv.velocity = moveVector * (isAttacking and 25 or 14)
+                    end
+                    if bg then
+                        bg.cframe = CFrame.new(myHrp.Position, predictedPos)
+                    end
                 else
-                    local sweepPos = mapGridPoints[gridIndex]
-                    if sweepPos then
-                        plr.ReplicationFocus = myHrp
-                        pcall(function() plr:RequestStreamAroundAsync(sweepPos, 500) end)
-                        myHrp.AssemblyLinearVelocity = Vector3.zero
-                        myHrp.AssemblyAngularVelocity = Vector3.zero
-                        myHrp.CFrame = CFrame.new(sweepPos)
-
-                        gridIndex = gridIndex + 1
-                        if gridIndex > #mapGridPoints then gridIndex = 1 end
-                    end
+                    stopInfiniteYieldFly()
                 end
             end)
+        else
+            stopInfiniteYieldFly()
         end
     end
 
+    stopInfiniteYieldFly()
     pcall(function()
         if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             plr.ReplicationFocus = plr.Character.HumanoidRootPart
@@ -492,6 +486,7 @@ pcall(function()
         if currentChatTarget then
             f_Wpy(currentChatTarget)
         else
+            stopInfiniteYieldFly()
             hasSaidHiForCurrentTarget = false
             isAttacking = false
         end
