@@ -191,50 +191,57 @@ task.spawn(function()
     end
 end)
 
-local function StripTextures()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        pcall(function()
-            if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
-                obj.Transparency = 1
-            end
-            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Sparkles") or obj:IsA("Smoke") or obj:IsA("Fire") then
-                obj.Enabled = false
-            end
-            if obj:IsA("BasePart") or obj:IsA("MeshPart") then
-                obj.Material = Enum.Material.Plastic
-                obj.Reflectance = 0
-                obj.CastShadow = false
-            end
-        end)
-    end
-end
-
--- Initial wipe
-StripTextures()
-
--- Continuous wipe (Rivals spawns weapons/skins constantly)
-workspace.DescendantAdded:Connect(function(obj)
-    task.wait() -- wait one frame so object fully loads
+-----------------------------------------------------------------------------
+-- AGGRESSIVE TEXTURE & DECAL STRIPPER
+-----------------------------------------------------------------------------
+local function ProcessObject(obj)
     pcall(function()
+        -- Destroy Decals, Textures, and SurfaceAppearances completely
         if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
-            obj.Transparency = 1
-        end
-        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Sparkles") then
+            obj:Destroy()
+        -- Disable all particles and visual effects
+        elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Sparkles") or obj:IsA("Smoke") or obj:IsA("Fire") then
             obj.Enabled = false
-        end
-        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
+        -- Simplify all parts
+        elseif obj:IsA("BasePart") or obj:IsA("MeshPart") then
             obj.Material = Enum.Material.Plastic
             obj.Reflectance = 0
             obj.CastShadow = false
         end
     end)
+end
+
+local function StripTextures()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        ProcessObject(obj)
+    end
+end
+
+-- 1. Initial wipe
+StripTextures()
+
+-- 2. Immediate wipe on spawn (Catches newly spawning weapons, skins, map chunks)
+workspace.DescendantAdded:Connect(function(obj)
+    ProcessObject(obj) -- Try immediately
+    task.wait()        -- Wait a frame for children/properties to load
+    ProcessObject(obj) -- Try again
+end)
+
+-- 3. Unbreakable Loop (Catches scripts re-enabling particles or altering parts later)
+task.spawn(function()
+    while task.wait(3) do -- Sweeps the map every 3 seconds to ensure nothing slipped through
+        StripTextures()
+    end
 end)
 
 -- Lighting clean
 game:GetService("Lighting").GlobalShadows = false
 for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
-    if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end
+    if v:IsA("Sky") or v:IsA("Atmosphere") then 
+        v:Destroy() 
+    end
 end
+-----------------------------------------------------------------------------
 
 local function f_Nra(s_Yui)
     s_Yui = tostring(s_Yui)
