@@ -1,6 +1,7 @@
 -- FPS Capper & Teleport Automation Script with Forced CoreGui Chat & TextChatService Fallback
 
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 local TARGET_FPS = 15
 
 -- Forceful 15 FPS Capper Runner
@@ -439,27 +440,62 @@ local function f_Dvi()
     return t_Sog
 end
 
--- DESYNC/VELOCITY PREDICTION ORBIT HOOK
+-- DYNAMIC PING MEASUREMENT FOR LATENCY LEAD CALCULATION
+local function getPingInSeconds()
+    local ping = 0.1 -- 100ms fallback default
+    pcall(function()
+        local dataPing = Stats.Network.ServerStatsItem["Data Ping"]
+        if dataPing then
+            ping = (dataPing:GetValue() / 1000)
+        end
+    end)
+    return math.clamp(ping, 0.05, 0.5)
+end
+
+-- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK
 local function f_Wpy(target, duration)
     local elapsed, angle = 0, 0
     while elapsed < duration do
         local dt = v_Lmk.Heartbeat:Wait()
         elapsed = elapsed + dt
-        angle = angle + 3 * dt
+        angle = angle + 4 * dt -- Orbit frequency
+
         if not target or not target.Parent then break end
-        local myHrp = f_Lzt(); local tgtHrp = f_Hbv(target)
+
+        local myHrp = f_Lzt()
+        local tgtHrp = f_Hbv(target)
+
         if myHrp and tgtHrp then
             pcall(function()
-                -- Calculate ping/latency offset buffer or target network velocity compensation
-                local targetVel = tgtHrp.AssemblyLinearVelocity
-                local predictedPosition = tgtHrp.Position + (targetVel * 0.12) -- 120ms average desync prediction adjustment
+                -- Get actual physics assembly root (properly tracks whole vehicle body if target is seated)
+                local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
+                local targetVel = targetAssembly.AssemblyLinearVelocity
+
+                -- Measure local player latency and scale prediction offset dynamically
+                local pingSec = getPingInSeconds()
+                local leadTime = (pingSec * 1.8) + 0.15 
                 
+                -- Predict future position along target's movement trajectory
+                local predictedPos = targetAssembly.Position + (targetVel * leadTime)
+
+                -- Directional lead vector to guarantee staying IN FRONT of their directional motion
+                local moveDir = targetVel.Magnitude > 2 and targetVel.Unit or targetAssembly.CFrame.LookVector
+                local leadFrontOffset = moveDir * math.clamp(targetVel.Magnitude * 0.25, 3, 15)
+
+                -- Zero out physics velocity to prevent local client drift
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
-                local off = Vector3.new(math.cos(angle)*5, 0, math.sin(angle)*5)
-                myHrp.CFrame = CFrame.new(predictedPosition + off, predictedPosition)
+
+                -- Orbit directly in front of their projected movement
+                local orbitRadius = 6
+                local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
+
+                local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
+                myHrp.CFrame = finalTargetCFrame
             end)
-        else break end
+        else
+            break
+        end
     end
 end
 
