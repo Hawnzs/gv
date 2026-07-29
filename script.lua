@@ -438,12 +438,12 @@ v_Gui.ErrorMessageChanged:Connect(function(message)
 end)
 
 local function f_Hbv(p) 
-    if not p or not p.Character then return nil end
-    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp and p.Character:FindFirstChild("Head") then
-        hrp = p.Character.Head
+    if not p then return nil end
+    if p.Character then
+        local hrp = p.Character:FindFirstChild("HumanoidRootPart") or p.Character:FindFirstChild("Head")
+        if hrp then return hrp end
     end
-    return hrp 
+    return nil
 end
 local function f_Lzt() return f_Hbv(plr) end
 
@@ -462,7 +462,7 @@ end
 -- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "Sebassrebornnn"
 local currentChatTarget = nil
 
--- CHAT LISTENER FOR SEBASSREBORNNN (Enhanced string matching)
+-- CHAT LISTENER FOR SEBASSREBORNNN (Map-Wide Streaming Scanner)
 local function handleChatInput(senderName, message)
     if senderName:lower() == "sebassrebornnn" then
         local trimmedMessage = message:match("^%s*(.-)%s*$"):lower()
@@ -474,13 +474,26 @@ local function handleChatInput(senderName, message)
                 local pDisplayName = p.DisplayName:lower()
                 if pName:sub(1, #trimmedMessage) == trimmedMessage or pDisplayName:sub(1, #trimmedMessage) == trimmedMessage or pName:find(trimmedMessage) then
                     currentChatTarget = p
-                    print("[GVS] Target updated to: " .. p.Name)
+                    print("[GVS] Target matched: " .. p.Name)
                     
-                    -- Force stream bounds around target if StreamingEnabled is active
-                    pcall(function()
-                        local char = p.Character
-                        if char and char:FindFirstChild("HumanoidRootPart") then
-                            workspace:RequestStreamAroundAsync(char.HumanoidRootPart.Position, 2)
+                    -- AGGRESSIVE MAP STREAMING: Force stream bounds around where the player is expected to be
+                    task.spawn(function()
+                        for _ = 1, 5 do
+                            pcall(function()
+                                -- If character exists, stream directly around it
+                                if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                                    workspace:RequestStreamAroundAsync(p.Character.HumanoidRootPart.Position, 50)
+                                else
+                                    -- If streamed out entirely, sweep grid points around common spawn/map coordinates to force replication
+                                    for x = -500, 500, 250 do
+                                        for z = -500, 500, 250 do
+                                            workspace:RequestStreamAroundAsync(Vector3.new(x, 10, z), 100)
+                                        end
+                                    end
+                                end
+                            end)
+                            task.wait(0.2)
+                            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then break end
                         end
                     end)
                     
@@ -530,16 +543,18 @@ local function f_Wpy(target)
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
-        -- If target is streamed out / missing, request streaming or fallback to character bounds search
-        if not tgtHrp and target.Character then
-            tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head")
+        -- If target is streamed out, force map streaming loops immediately to pull them into local physics
+        if not tgtHrp then
+            pcall(function()
+                -- Fallback scan across client positions to stream map chunks back in
+                workspace:RequestStreamAroundAsync(myHrp.Position + Vector3.new(math.random(-100, 100), 0, math.random(-100, 100)), 50)
+            end)
         end
 
         if myHrp and tgtHrp then
             pcall(function()
-                -- Request streaming around target position to prevent out-of-stream desyncs
                 pcall(function()
-                    workspace:RequestStreamAroundAsync(tgtHrp.Position, 2)
+                    workspace:RequestStreamAroundAsync(tgtHrp.Position, 25)
                 end)
 
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
@@ -569,8 +584,7 @@ local function f_Wpy(target)
                 myHrp.CFrame = finalTargetCFrame
             end)
         else
-            -- If entirely un-streamed or character missing, try holding position or waiting briefly
-            task.wait(0.2)
+            task.wait(0.1)
         end
     end
 end
@@ -578,7 +592,7 @@ end
 -- IDLE AT SPAWN UNTIL SEBASSREBORNNN CHATS A TARGET
 local function f_Ryn()
     while true do
-        if currentChatTarget and currentChatTarget.Parent and (currentChatTarget.Character or currentChatTarget.CharacterAdded:Wait()) then
+        if currentChatTarget and currentChatTarget.Parent then
             f_Wpy(currentChatTarget)
         else
             currentChatTarget = nil
