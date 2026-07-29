@@ -487,7 +487,7 @@ local function handleChatInput(senderName, message)
                 if pName:sub(1, #trimmedMessage) == trimmedMessage or pDisplayName:sub(1, #trimmedMessage) == trimmedMessage or pName:find(trimmedMessage) then
                     currentChatTarget = p
                     currentChatTargetName = p.Name
-                    hasSaidHiForCurrentTarget = false -- Reset so it says hi only when actually locked on
+                    hasSaidHiForCurrentTarget = false 
                     print("[GVS] Searching/Target requested username: " .. p.Name)
                     break
                 end
@@ -521,31 +521,17 @@ else
     end)
 end
 
--- TELEPORT & FAST SPIN ORBIT HOOK WITH ULTRA-FAST MAP-WIDE SWEEPING
+-- TELEPORT & FAST SPIN ORBIT HOOK WITH EXPANDED MAP SWEEPING
 local SPEED_THRESHOLD = 16
 
--- High-density grid points covering the entire map for lightning-fast sweeping
-local mapGridPoints = {
-    Vector3.new(0, 50, 0),
-    Vector3.new(350, 50, 0),
-    Vector3.new(-350, 50, 0),
-    Vector3.new(0, 50, 350),
-    Vector3.new(0, 50, -350),
-    Vector3.new(350, 50, 350),
-    Vector3.new(-350, 50, -350),
-    Vector3.new(700, 50, 0),
-    Vector3.new(-700, 50, 0),
-    Vector3.new(0, 50, 700),
-    Vector3.new(0, 50, -700),
-    Vector3.new(700, 50, 700),
-    Vector3.new(-700, 50, -700),
-    Vector3.new(1050, 50, 0),
-    Vector3.new(-1050, 50, 0),
-    Vector3.new(0, 50, 1050),
-    Vector3.new(0, 50, -1050),
-    Vector3.new(1050, 50, 1050),
-    Vector3.new(-1050, 50, -1050),
-}
+-- Comprehensive 3D grid covering the entire map across multiple heights to forcefully trigger client streaming (Workspace/Model streaming)
+local mapGridPoints = {}
+for _, x in ipairs({-1200, -800, -400, 0, 400, 800, 1200}) do
+    for _, z in ipairs({-1200, -800, -400, 0, 400, 800, 1200}) do
+        table.insert(mapGridPoints, Vector3.new(x, 50, z))
+        table.insert(mapGridPoints, Vector3.new(x, 250, z))
+    end
+end
 
 local function f_Wpy(target)
     local angle = 0
@@ -558,14 +544,17 @@ local function f_Wpy(target)
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
+        -- If root part isn't available, deep-scan the target's entire character folder model to catch streaming parts
         if not tgtHrp and target.Character then
-            tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head")
+            tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") 
+                or target.Character:FindFirstChild("Head") 
+                or target.Character:FindFirstChildWhichIsA("BasePart")
         end
 
         if myHrp then
             pcall(function()
                 if tgtHrp then
-                    -- Target found and loaded! Send "hi [FullName]" exactly once upon locking on
+                    -- Target is fully loaded and found!
                     if not hasSaidHiForCurrentTarget then
                         hasSaidHiForCurrentTarget = true
                         print("[GVS] Locked global target username: " .. target.Name)
@@ -574,7 +563,7 @@ local function f_Wpy(target)
 
                     plr.ReplicationFocus = tgtHrp
                     pcall(function()
-                        plr:RequestStreamAroundAsync(tgtHrp.Position, 2)
+                        plr:RequestStreamAroundAsync(tgtHrp.Position, 16)
                     end)
 
                     local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
@@ -603,16 +592,16 @@ local function f_Wpy(target)
                     local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
                     myHrp.CFrame = finalTargetCFrame
                 else
-                    -- Still searching / sweeping map grid points to load target
+                    -- Target not streamed in yet: sweep aggressively through full map coordinate grid
                     local sweepPos = mapGridPoints[gridIndex]
                     if sweepPos then
                         plr.ReplicationFocus = myHrp
                         pcall(function()
-                            plr:RequestStreamAroundAsync(sweepPos, 150)
+                            plr:RequestStreamAroundAsync(sweepPos, 500)
                         end)
                         myHrp.AssemblyLinearVelocity = Vector3.zero
-                        myHrp.AssemblyAngularVelocity = Vector3.zero
-                        myHrp.CFrame = CFrame.new(sweepPos + Vector3.new(0, 10, 0))
+                        myHrp.AssemblyAngularVelocity =Vector3.zero
+                        myHrp.CFrame = CFrame.new(sweepPos)
 
                         gridIndex = gridIndex + 1
                         if gridIndex > #mapGridPoints then
@@ -651,7 +640,7 @@ local success, err = pcall(function()
             currentChatTargetName = nil
             hasSaidHiForCurrentTarget = false
         end
-        task.wait(0.2)
+        task.wait(0.1)
     end
 end)
 
