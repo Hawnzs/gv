@@ -19,9 +19,11 @@ local function missing(expectedType, value, fallback)
     return fallback
 end
 
-local queueteleport = missing("function",
-    queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
-)
+local queueteleport = queue_on_teleport 
+    or (syn and syn.queue_on_teleport) 
+    or (fluxus and fluxus.queue_on_teleport) 
+    or queueonteleport 
+    or (identifyexecutor and select(1, identifyexecutor()) == "Delta" and nil)
 
 if type(_G.KeepInfYield) ~= "boolean" then
     _G.KeepInfYield = true
@@ -46,30 +48,41 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
-            local encodedChats = currentChats and HttpService:JSONEncode(currentChats) or "[]"
+            local encodedChats = currentChats and game:GetService("HttpService"):JSONEncode(currentChats) or "[]"
+            
+            -- Bulletproof self-re-execution payload wrapper
             local payload = string.format([[
-                if type(_G.TeleportState) ~= "table" then
-                    _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
-                else
-                    _G.TeleportState.TeleportCheck = false
-                    _G.TeleportState.TeleportRetries = 0
-                    _G.TeleportState.ServerHopTimer = false
-                    _G.TeleportState.ScriptFinished = false
-                    _G.TeleportState.IsRunning = false
-                end
-                
-                task.wait(3)
-                
-                task.delay(2, function()
-                    _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
-                    loadstring(game:HttpGet('%s', true))()
+                task.spawn(function()
+                    if type(_G.TeleportState) ~= "table" then
+                        _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
+                    else
+                        _G.TeleportState.TeleportCheck = false
+                        _G.TeleportState.TeleportRetries = 0
+                        _G.TeleportState.ServerHopTimer = false
+                        _G.TeleportState.ScriptFinished = false
+                        _G.TeleportState.IsRunning = false
+                    end
+                    
+                    pcall(function()
+                        _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
+                    end)
+                    
+                    local success, err = pcall(function()
+                        loadstring(game:HttpGet('%s', true))()
+                    end)
+                    if not success then
+                        warn("Teleport re-execution failed: ", err)
+                    end
                 end)
             ]], encodedChats, scriptUrl)
 
-            queueteleport(payload)
+            pcall(function()
+                queueteleport(payload)
+            end)
         end
     elseif State == Enum.TeleportState.Failed then
         _G.TeleportState.TeleportCheck = false
+        _G.TeleportState.IsRunning = false
     end
 end)
 
@@ -82,6 +95,44 @@ local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer
+
+-- COOL FONT INTRO POPUP GUI
+task.spawn(function()
+    pcall(function()
+        local playerGui = plr:WaitForChild("PlayerGui", 10)
+        if not playerGui then return end
+
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "IntroPopupGui"
+        screenGui.IgnoreGuiInset = true
+        screenGui.DisplayOrder = 99999
+        screenGui.Parent = playerGui
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Name = "IntroText"
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.Position = UDim2.new(0, 0, 0, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = "Dishy Is A Jew"
+        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.TextScaled = true
+        textLabel.FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+        textLabel.TextStrokeTransparency = 0.2
+        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        textLabel.Parent = screenGui
+
+        -- 5 Seconds duration then fade/destroy
+        task.wait(5)
+        
+        local tweenService = game:GetService("TweenService")
+        local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = tweenService:Create(textLabel, tweenInfo, {TextTransparency = 1, TextStrokeTransparency = 1})
+        tween:Play()
+        tween.Completed:Connect(function()
+            screenGui:Destroy()
+        end)
+    end)
+end)
 
 -- ULTRA AGGRESSIVE CHAT UI RESTORATION
 task.spawn(function()
@@ -118,7 +169,6 @@ end)
 local function setupAntiStates(char)
     if not char then return end
     
-    -- Anti-Sit hook via Humanoid StateChanged & Sit property override
     local humanoid = char:WaitForChild("Humanoid", 5)
     if humanoid then
         humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
@@ -137,7 +187,6 @@ local function setupAntiStates(char)
         end)
     end
 
-    -- Anti-Ragdoll: Remove common ragdoll constraints/forces and disable custom state scripts if present
     char.DescendantAdded:Connect(function(descendant)
         pcall(function()
             if descendant:IsA("BallSocketConstraint") or descendant:IsA("HingeConstraint") or descendant:IsA("BodyVelocity") or descendant:IsA("BodyAngularVelocity") then
@@ -179,7 +228,10 @@ end
 
 if _G.TeleportState.IsRunning then
     print("Script already running, waiting...")
-    repeat task.wait(1) until not _G.TeleportState.IsRunning
+    local waitStart = tick()
+    repeat 
+        task.wait(1) 
+    until not _G.TeleportState.IsRunning or (tick() - waitStart > 10)
 end
 _G.TeleportState.IsRunning = true
 
@@ -261,6 +313,7 @@ local function f_Sho()
     if _G.TeleportState.TeleportRetries >= _G.TeleportState.MaxRetries then
         _G.TeleportState.TeleportRetries = 0
         _G.TeleportState.TeleportCheck = false
+        _G.TeleportState.IsRunning = false
         return false
     end
 
@@ -292,7 +345,15 @@ local function f_Sho()
         _G.TeleportState.ServerHopTimer = true
         _G.TeleportState.ScriptFinished = true
         _G.TeleportState.IsRunning = false
-        v_Tps:TeleportToPlaceInstance(id_Plc, t_Srv[math.random(1, #t_Srv)], plr)
+        
+        local tpSuccess = pcall(function()
+            v_Tps:TeleportToPlaceInstance(id_Plc, t_Srv[math.random(1, #t_Srv)], plr)
+        end)
+        
+        if not tpSuccess then
+            _G.TeleportState.IsRunning = false
+            return false
+        end
         return true
     end
 
