@@ -1,18 +1,13 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, dynamically streams/searches the map, orbits them, says "hi", and supports pressing [END] to fully unload.
+-- Target-Specific Mode: Idles at spawn until "Sebassrebornnn" chats a target's name, then says "hi [FullName]" and teleports/spins around them.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local TARGET_FPS = 15
 
--- Active connections tracking for unloading cleanup
-local activeConnections = {}
-
 -- Forceful 15 FPS Capper Runner
-local capperConnection
 task.spawn(function()
     while true do
         local t0 = tick()
@@ -52,6 +47,7 @@ end
 
 local SCRIPT_URL = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
+-- Universal function to set queue on teleport prior to hopping
 local function safeQueueTeleport()
     if queueteleport then
         pcall(function()
@@ -65,7 +61,7 @@ local function safeQueueTeleport()
     end
 end
 
-local teleportConn = game.Players.LocalPlayer.OnTeleport:Connect(function(State)
+game.Players.LocalPlayer.OnTeleport:Connect(function(State)
     if State == Enum.TeleportState.InProgress then
         if _G.KeepInfYield and not _G.TeleportState.TeleportCheck then
             _G.TeleportState.TeleportCheck = true
@@ -76,7 +72,6 @@ local teleportConn = game.Players.LocalPlayer.OnTeleport:Connect(function(State)
         _G.TeleportState.IsRunning = false
     end
 end)
-table.insert(activeConnections, teleportConn)
 
 local v_QpZ = game:GetService("Players")
 local v_Lmk = game:GetService("RunService")
@@ -87,8 +82,6 @@ local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer or v_QpZ.PlayerAdded:Wait()
-
-local loadedGui = nil
 
 -- GREENVILLE SERVICES — MINIMAL LOADER UI
 task.spawn(function()
@@ -122,7 +115,6 @@ task.spawn(function()
             ResetOnSpawn = false,
             DisplayOrder = 999999,
         }, playerGui)
-        loadedGui = gui
 
         local dim = new("Frame", {
             Size = UDim2.fromScale(1, 1),
@@ -161,7 +153,9 @@ task.spawn(function()
         tw(dim,   0.4, Q, OUT, { BackgroundTransparency = 0.55 })
         tw(label, 0.5, Q, OUT, { TextTransparency = 0 }, 0.1)
         tw(track, 0.5, Q, OUT, { BackgroundTransparency = 0.88 }, 0.15)
-        tw(fill, TIME, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, { Size = UDim2.fromScale(1, 1) }, 0.4)
+
+        tw(fill, TIME, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut,
+            { Size = UDim2.fromScale(1, 1) }, 0.4)
 
         task.wait(TIME + 0.7)
 
@@ -171,9 +165,7 @@ task.spawn(function()
         tw(fill,  0.3,  Q, IN, { BackgroundTransparency = 1 })
 
         task.delay(0.45, function()
-            if dim and dim.Parent then dim:Destroy() end
-            if label and label.Parent then label:Destroy() end
-            if track and track.Parent then track:Destroy() end
+            dim:Destroy(); label:Destroy(); track:Destroy()
         end)
 
         if not WIDGET then return end
@@ -220,7 +212,7 @@ task.spawn(function()
         tw(dot,  0.5, Q, OUT, { BackgroundTransparency = 0 })
 
         task.spawn(function()
-            while gui and gui.Parent do
+            while gui.Parent do
                 tw(dot, 0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, { BackgroundTransparency = 0.6 })
                 task.wait(0.8)
                 tw(dot, 0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, { BackgroundTransparency = 0 })
@@ -230,26 +222,60 @@ task.spawn(function()
     end)
 end)
 
+-- ULTRA AGGRESSIVE CHAT UI RESTORATION
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            v_Sgi:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+            v_Sgi:SetCore("ChatWindowVisible", true)
+            v_Sgi:SetCore("ChatActive", true)
+            
+            local playerGui = plr:FindFirstChild("PlayerGui")
+            if playerGui then
+                local chatGui = playerGui:FindFirstChild("Chat")
+                if chatGui then
+                    chatGui.Enabled = true
+                    for _, child in ipairs(chatGui:GetDescendants()) do
+                        if child:IsA("Frame") or child:IsA("ScrollingFrame") or child:IsA("TextBox") then
+                            child.Visible = true
+                        end
+                    end
+                end
+            end
+            
+            if v_Rtd.ChatVersion == Enum.ChatVersion.TextChatService then
+                local windowConfig = v_Rtd:FindFirstChild("ChatWindowConfiguration")
+                if windowConfig then
+                    windowConfig.Enabled = true
+                end
+            end
+        end)
+    end
+end)
+
 -- ANTI-SIT & ANTI-RAGDOLL SYSTEM
 local function setupAntiStates(char)
     if not char then return end
+    
     local humanoid = char:WaitForChild("Humanoid", 5)
     if humanoid then
-        local sitConn = humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
-            if humanoid.Sit then humanoid.Sit = false end
-        end)
-        table.insert(activeConnections, sitConn)
-
-        local stateConn = humanoid.StateChanged:Connect(function(_, newState)
-            if newState == Enum.HumanoidStateType.Seated or newState == Enum.HumanoidStateType.Ragdoll or newState == Enum.HumanoidStateType.FallingDown then
+        humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
+            if humanoid.Sit then
                 humanoid.Sit = false
+            end
+        end)
+        
+        humanoid.StateChanged:Connect(function(_, newState)
+            if newState == Enum.HumanoidStateType.Seated then
+                humanoid.Sit = false
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            elseif newState == Enum.HumanoidStateType.Ragdoll or newState == Enum.HumanoidStateType.FallingDown then
                 humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
         end)
-        table.insert(activeConnections, stateConn)
     end
 
-    local descConn = char.DescendantAdded:Connect(function(descendant)
+    char.DescendantAdded:Connect(function(descendant)
         pcall(function()
             if descendant:IsA("BallSocketConstraint") or descendant:IsA("HingeConstraint") or descendant:IsA("BodyVelocity") or descendant:IsA("BodyAngularVelocity") then
                 if descendant.Name:lower():find("ragdoll") or descendant.Name:lower():find("joint") then
@@ -258,15 +284,16 @@ local function setupAntiStates(char)
             end
         end)
     end)
-    table.insert(activeConnections, descConn)
 end
 
-local charAddConn = plr.CharacterAdded:Connect(setupAntiStates)
-table.insert(activeConnections, charAddConn)
-if plr.Character then task.spawn(function() setupAntiStates(plr.Character) end) end
+plr.CharacterAdded:Connect(setupAntiStates)
+if plr.Character then
+    task.spawn(function() setupAntiStates(plr.Character) end)
+end
 
 local function httpRequest(url)
-    local success, result = pcall(function() return game:HttpGet(url) end)
+    local success, result
+    success, result = pcall(function() return game:HttpGet(url) end)
     if success and type(result) == "string" and #result > 0 then return result end
 
     success, result = pcall(function()
@@ -290,11 +317,14 @@ end
 if _G.TeleportState.IsRunning then
     print("Script already running, waiting...")
     local waitStart = tick()
-    repeat task.wait(1) until not _G.TeleportState.IsRunning or (tick() - waitStart > 10)
+    repeat 
+        task.wait(1) 
+    until not _G.TeleportState.IsRunning or (tick() - waitStart > 10)
 end
 _G.TeleportState.IsRunning = true
 
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
+
 task.wait(2)
 
 local title = plr:FindFirstChild("PlayerGui") and plr.PlayerGui:FindFirstChild("Title")
@@ -314,12 +344,15 @@ repeat
     task.wait(0.5)
     attempts = attempts + 1
     if attempts > 20 then
+        print("Timeout waiting for character - retrying")
         plr.CharacterAdded:Wait()
         attempts = 0
     end
 until plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
 
-if not plr.Character then plr.CharacterAdded:Wait() end
+if not plr.Character then
+    plr.CharacterAdded:Wait()
+end
 
 local humanoid = plr.Character:FindFirstChildWhichIsA("Humanoid")
 if humanoid then
@@ -335,6 +368,7 @@ if head then head.Anchored = false end
 
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
+
 local b_Oek = v_Rtd.ChatVersion == Enum.ChatVersion.LegacyChatService
 
 local function f_Nra(s_Yui)
@@ -346,151 +380,168 @@ local function f_Nra(s_Yui)
     end
 end
 
--- UNLOAD FUNCTION (Bound to END Key)
-local unloaded = false
-local function unloadScript()
-    if unloaded then return end
-    unloaded = true
-
-    -- Disconnect all event connections
-    for _, conn in ipairs(activeConnections) do
-        pcall(function() conn:Disconnect() end)
-    end
-
-    -- Reset ReplicationFocus
-    pcall(function() plr.ReplicationFocus = nil end)
-
-    -- Destroy UI
-    pcall(function()
-        if loadedGui then loadedGui:Destroy() end
-    end)
-
-    -- Reset global state flags
-    _G.TeleportState.IsRunning = false
-
-    print("[GVS] Script successfully unloaded via [END] key.")
-end
-
-local inputConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.End then
-        unloadScript()
-    end
-end)
-table.insert(activeConnections, inputConn)
-
--- ENHANCED SERVER HOPPER
+-- ENHANCED SERVER HOPPER WITH FAILSAFE FALLBACKS
 local function f_Sho()
-    if unloaded then return end
     safeQueueTeleport()
+    
     local s_Req = httpRequest("https://games.roblox.com/v1/games/" .. id_Plc .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
     if s_Req then 
         local ok_Bod, t_Bod = pcall(function() return v_Hts:JSONDecode(s_Req) end)
         if ok_Bod and t_Bod and t_Bod.data then 
             local t_Srv = {}
             for _, v_Ent in ipairs(t_Bod.data) do
-                if type(v_Ent) == "table" and tonumber(v_Ent.playing) and tonumber(v_Ent.maxPlayers) and v_Ent.playing < v_Ent.maxPlayers and v_Ent.id ~= id_Job then
+                if type(v_Ent) == "table"
+                    and tonumber(v_Ent.playing)
+                    and tonumber(v_Ent.maxPlayers)
+                    and v_Ent.playing < v_Ent.maxPlayers
+                    and v_Ent.id ~= id_Job then
                     table.insert(t_Srv, v_Ent.id)
                 end
             end
+
             if #t_Srv > 0 then
                 _G.TeleportState.ServerHopTimer = true
                 _G.TeleportState.ScriptFinished = true
                 _G.TeleportState.IsRunning = false
+                
                 local randomServer = t_Srv[math.random(1, #t_Srv)]
-                if pcall(function() v_Tps:TeleportToPlaceInstance(id_Plc, randomServer, plr) end) then return true end
+                local tpSuccess = pcall(function()
+                    v_Tps:TeleportToPlaceInstance(id_Plc, randomServer, plr)
+                end)
+                
+                if tpSuccess then return true end
             end
         end
     end
+
     _G.TeleportState.ServerHopTimer = true
     _G.TeleportState.ScriptFinished = true
     _G.TeleportState.IsRunning = false
-    pcall(function() v_Tps:Teleport(id_Plc, plr) end)
+    pcall(function()
+        v_Tps:Teleport(id_Plc, plr)
+    end)
     return true
 end
 
-local tpFailConn = v_Tps.TeleportInitFailed:Connect(function() if not unloaded then f_Sho() end end)
-table.insert(activeConnections, tpFailConn)
+v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
+    _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
+    task.wait(2)
+    f_Sho()
+end)
 
-local errConn = v_Gui.ErrorMessageChanged:Connect(function(msg) if not unloaded and msg and #msg > 0 then f_Sho() end end)
-table.insert(activeConnections, errConn)
+v_Gui.ErrorMessageChanged:Connect(function(message)
+    if message and #message > 0 then
+        _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
+        task.wait(2)
+        f_Sho()
+    end
+end)
 
-local function f_Hbv(p) return p.Character and p.Character:FindFirstChild("HumanoidRootPart") end
+local function f_Hbv(p) 
+    if not p or not p.Character then return nil end
+    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp and p.Character:FindFirstChild("Head") then
+        hrp = p.Character.Head
+    end
+    return hrp 
+end
 local function f_Lzt() return f_Hbv(plr) end
 
+-- DYNAMIC PING MEASUREMENT FOR LATENCY LEAD CALCULATION
 local function getPingInSeconds()
     local ping = 0.1
     pcall(function()
         local dataPing = Stats.Network.ServerStatsItem["Data Ping"]
-        if dataPing then ping = (dataPing:GetValue() / 1000) end
+        if dataPing then
+            ping = (dataPing:GetValue() / 1000)
+        end
     end)
     return math.clamp(ping, 0.05, 0.5)
 end
 
--- GLOBAL TARGET CACHE
+-- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "Sebassrebornnn"
 local currentChatTarget = nil
-local hasSaidHelloForTarget = false
 
--- CHAT LISTENER FOR SEBASSREBORNNN
+-- CHAT LISTENER FOR SEBASSREBORNNN (Enhanced string matching)
 local function handleChatInput(senderName, message)
-    if unloaded then return end
     if senderName:lower() == "sebassrebornnn" then
-        local trimmedMessage = message:match("^%s*(.-)%s*$")
+        local trimmedMessage = message:match("^%s*(.-)%s*$"):lower()
+        if trimmedMessage == "" then return end
+        
         for _, p in ipairs(v_QpZ:GetPlayers()) do
-            if p ~= plr and (p.Name:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() or p.DisplayName:lower():sub(1, #trimmedMessage) == trimmedMessage:lower()) then
-                currentChatTarget = p
-                hasSaidHelloForTarget = false
-                print("[GVS] Search initiated for target: " .. p.Name)
-                break
+            if p ~= plr then
+                local pName = p.Name:lower()
+                local pDisplayName = p.DisplayName:lower()
+                if pName:sub(1, #trimmedMessage) == trimmedMessage or pDisplayName:sub(1, #trimmedMessage) == trimmedMessage or pName:find(trimmedMessage) then
+                    currentChatTarget = p
+                    print("[GVS] Target updated to: " .. p.Name)
+                    
+                    -- Force stream bounds around target if StreamingEnabled is active
+                    pcall(function()
+                        local char = p.Character
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                            workspace:RequestStreamAroundAsync(char.HumanoidRootPart.Position, 2)
+                        end
+                    end)
+                    
+                    f_Nra("hi " .. p.Name)
+                    break
+                end
             end
         end
     end
 end
 
+-- Setup Legacy & TextChatService listeners
 if b_Oek then
     for _, p in ipairs(v_QpZ:GetPlayers()) do
-        local pChat = p.Chatted:Connect(function(msg) handleChatInput(p.Name, msg) end)
-        table.insert(activeConnections, pChat)
+        p.Chatted:Connect(function(msg)
+            handleChatInput(p.Name, msg)
+        end)
     end
-    local pAddConn = v_QpZ.PlayerAdded:Connect(function(p)
-        local pChat = p.Chatted:Connect(function(msg) handleChatInput(p.Name, msg) end)
-        table.insert(activeConnections, pChat)
+    v_QpZ.PlayerAdded:Connect(function(p)
+        p.Chatted:Connect(function(msg)
+            handleChatInput(p.Name, msg)
+        end)
     end)
-    table.insert(activeConnections, pAddConn)
 else
     pcall(function()
-        local msgConn = v_Rtd.MessageReceived:Connect(function(textMessage)
+        v_Rtd.MessageReceived:Connect(function(textMessage)
             if textMessage.TextSource then
                 local senderPlayer = v_QpZ:GetPlayerByUserId(textMessage.TextSource.UserId)
-                if senderPlayer then handleChatInput(senderPlayer.Name, textMessage.Text) end
+                if senderPlayer then
+                    handleChatInput(senderPlayer.Name, textMessage.Text)
+                end
             end
         end)
-        table.insert(activeConnections, msgConn)
     end)
 end
 
--- MAP SEARCH, STREAMING BYPASS & FAST SPIN ORBIT HOOK
+-- TELEPORT & FAST SPIN ORBIT HOOK WITH STREAMING PROTECTION
 local SPEED_THRESHOLD = 16
 
 local function f_Wpy(target)
     local angle = 0
 
-    while not unloaded and target and target.Parent and currentChatTarget == target do
+    while target and target.Parent and v_QpZ:FindFirstChild(target.Name) and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
+        angle = angle + 12 * dt
+
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
-        if tgtHrp then
-            pcall(function() plr.ReplicationFocus = tgtHrp end)
+        -- If target is streamed out / missing, request streaming or fallback to character bounds search
+        if not tgtHrp and target.Character then
+            tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head")
         end
 
         if myHrp and tgtHrp then
-            if not hasSaidHelloForTarget then
-                hasSaidHelloForTarget = true
-                f_Nra("hi " .. target.Name)
-            end
-
-            angle = angle + 12 * dt
             pcall(function()
+                -- Request streaming around target position to prevent out-of-stream desyncs
+                pcall(function()
+                    workspace:RequestStreamAroundAsync(tgtHrp.Position, 2)
+                end)
+
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                 local targetVel = targetAssembly.AssemblyLinearVelocity
                 local targetSpeed = targetVel.Magnitude
@@ -501,7 +552,9 @@ local function f_Wpy(target)
                 if targetSpeed > SPEED_THRESHOLD then
                     local pingSec = getPingInSeconds()
                     local leadTime = (pingSec * 1.8) + 0.15 
+                    
                     predictedPos = targetAssembly.Position + (targetVel * leadTime)
+
                     local moveDir = targetVel.Unit
                     leadFrontOffset = moveDir * math.clamp(targetSpeed * 0.25, 3, 15)
                 end
@@ -509,39 +562,47 @@ local function f_Wpy(target)
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
 
-                local orbitRadius = 5
+                local orbitRadius = 5 
                 local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 2, math.sin(angle) * orbitRadius)
-                myHrp.CFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
+
+                local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
+                myHrp.CFrame = finalTargetCFrame
             end)
         else
+            -- If entirely un-streamed or character missing, try holding position or waiting briefly
             task.wait(0.2)
         end
     end
-
-    pcall(function() plr.ReplicationFocus = nil end)
 end
 
+-- IDLE AT SPAWN UNTIL SEBASSREBORNNN CHATS A TARGET
 local function f_Ryn()
-    while not unloaded do
-        if currentChatTarget then
-            if currentChatTarget.Parent then
-                f_Wpy(currentChatTarget)
-            else
-                currentChatTarget = nil
-                hasSaidHelloForTarget = false
-            end
+    while true do
+        if currentChatTarget and currentChatTarget.Parent and (currentChatTarget.Character or currentChatTarget.CharacterAdded:Wait()) then
+            f_Wpy(currentChatTarget)
+        else
+            currentChatTarget = nil
         end
         task.wait(0.5)
     end
 end
 
-pcall(function()
+local success, err = pcall(function()
     if not (plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")) then
+        print("Waiting for character...")
         plr.CharacterAdded:Wait()
-        repeat task.wait(0.1) until plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+        repeat 
+            task.wait(0.1) 
+        until plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
         task.wait(1)
     end
+    
     f_Ryn()
 end)
+
+if not success then
+    print("Script error: " .. tostring(err))
+    task.wait(2)
+end
 
 _G.TeleportState.IsRunning = false
