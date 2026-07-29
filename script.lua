@@ -1,3 +1,18 @@
+-- FPS Capper & Teleport/Server-Hop Automation Script for Roblox
+-- Combined with a tight 15 FPS rendering throttle
+
+local RunService = game:GetService("RunService")
+local TARGET_FPS = 15
+
+-- Forceful 15 FPS Capper Runner
+task.spawn(function()
+	while true do
+		local t0 = tick()
+		RunService.RenderStepped:Wait()
+		repeat until (t0 + 1 / TARGET_FPS) < tick()
+	end
+end)
+
 local function missing(expectedType, value, fallback)
     if type(value) == expectedType then
         return value
