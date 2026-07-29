@@ -114,6 +114,46 @@ task.spawn(function()
     end
 end)
 
+-- ANTI-SIT & ANTI-RAGDOLL SYSTEM
+local function setupAntiStates(char)
+    if not char then return end
+    
+    -- Anti-Sit hook via Humanoid StateChanged & Sit property override
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
+            if humanoid.Sit then
+                humanoid.Sit = false
+            end
+        end)
+        
+        humanoid.StateChanged:Connect(function(_, newState)
+            if newState == Enum.HumanoidStateType.Seated then
+                humanoid.Sit = false
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            elseif newState == Enum.HumanoidStateType.Ragdoll or newState == Enum.HumanoidStateType.FallingDown then
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end)
+    end
+
+    -- Anti-Ragdoll: Remove common ragdoll constraints/forces and disable custom state scripts if present
+    char.DescendantAdded:Connect(function(descendant)
+        pcall(function()
+            if descendant:IsA("BallSocketConstraint") or descendant:IsA("HingeConstraint") or descendant:IsA("BodyVelocity") or descendant:IsA("BodyAngularVelocity") then
+                if descendant.Name:lower():find("ragdoll") or descendant.Name:lower():find("joint") then
+                    descendant:Destroy()
+                end
+            end
+        end)
+    end)
+end
+
+plr.CharacterAdded:Connect(setupAntiStates)
+if plr.Character then
+    task.spawn(function() setupAntiStates(plr.Character) end)
+end
+
 local function httpRequest(url)
     local success, result
     success, result = pcall(function() return game:HttpGet(url) end)
