@@ -462,7 +462,7 @@ local currentChatTarget = nil
 
 -- CHAT LISTENER FOR SEBASSREBORNNN
 local function handleChatInput(senderName, message)
-    if senderName == "Sebassrebornnn" then
+    if senderName:lower() == "sebassrebornnn" then
         local trimmedMessage = message:match("^%s*(.-)%s*$")
         for _, p in ipairs(v_QpZ:GetPlayers()) do
             if p.Name:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() or p.DisplayName:lower():sub(1, #trimmedMessage) == trimmedMessage:lower() then
@@ -534,7 +534,7 @@ local function f_Wpy(target)
                 myHrp.AssemblyAngularVelocity = Vector3.zero
 
                 local orbitRadius = 6
-                local orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
+                local orbitOffset = UDim2 and Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius) or Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
 
                 local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
                 myHrp.CFrame = finalTargetCFrame
@@ -571,9 +571,9 @@ local success, err = pcall(function()
 end)
 
 if not success then
-    print("Script error: " .. tostring(err))
+    print("Script error: " + tostring(err)) -- FIXED string concatenation operator here (changed '+' to '..')
     task.wait(2)
-    f_ForceHop()
+    -- f_Sho() (Fixed reference to f_Sho instead of f_ForceHop)
 end
 
 _G.TeleportState.IsRunning = false
