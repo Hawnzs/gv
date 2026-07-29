@@ -121,7 +121,6 @@ task.spawn(function()
         textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         textLabel.Parent = screenGui
 
-        -- 5 Seconds duration then fade/destroy
         task.wait(5)
         
         local tweenService = game:GetService("TweenService")
@@ -440,6 +439,7 @@ local function f_Dvi()
     return t_Sog
 end
 
+-- DESYNC/VELOCITY PREDICTION ORBIT HOOK
 local function f_Wpy(target, duration)
     local elapsed, angle = 0, 0
     while elapsed < duration do
@@ -450,11 +450,14 @@ local function f_Wpy(target, duration)
         local myHrp = f_Lzt(); local tgtHrp = f_Hbv(target)
         if myHrp and tgtHrp then
             pcall(function()
-                local cen = tgtHrp.Position
+                -- Calculate ping/latency offset buffer or target network velocity compensation
+                local targetVel = tgtHrp.AssemblyLinearVelocity
+                local predictedPosition = tgtHrp.Position + (targetVel * 0.12) -- 120ms average desync prediction adjustment
+                
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
                 local off = Vector3.new(math.cos(angle)*5, 0, math.sin(angle)*5)
-                myHrp.CFrame = CFrame.new(cen+off, cen)
+                myHrp.CFrame = CFrame.new(predictedPosition + off, predictedPosition)
             end)
         else break end
     end
