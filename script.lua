@@ -1,4 +1,5 @@
--- FPS Capper & Teleport Automation Script with "Greenville Services" Minimal Loader
+-- FPS Capper & Continuous Target Following Script with "Greenville Services" Minimal Loader
+-- Target-Specific Mode: Continuously tracks and follows "NoahBatmanSam" until they leave the server.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -373,9 +374,7 @@ if head then head.Anchored = false end
 local n_Gxb = 120
 local n_Vcs = 0.06
 local n_Iuw = 40
-local n_Ptl = 5
 local n_Zmq2 = 50
-local n_Tmo = 60
 
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
@@ -444,27 +443,6 @@ local function f_Sho()
     return true
 end
 
-local function f_ForceHop()
-    if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
-        print("Script finished - forcing server hop!")
-        _G.TeleportState.ScriptFinished = true
-        _G.TeleportState.ServerHopTimer = true
-        _G.TeleportState.IsRunning = false
-        f_Sho()
-    end
-end
-
-task.spawn(function()
-    task.wait(180)
-    if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
-        print("180 seconds passed - forcing server hop!")
-        _G.TeleportState.ServerHopTimer = true
-        _G.TeleportState.ScriptFinished = true
-        _G.TeleportState.IsRunning = false
-        f_Sho()
-    end
-end)
-
 v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
     task.wait(2)
@@ -517,22 +495,29 @@ local function getPingInSeconds()
     return math.clamp(ping, 0.05, 0.5)
 end
 
--- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK
+-- ADVANCED DESYNC / DYNAMIC VEHICLE & WALKING PREDICTION ORBIT HOOK (INFINITE LOOP UNTIL TARGET LEAVES)
 local SPEED_THRESHOLD = 16 -- Normal walking speed threshold in studs/sec
 
-local function f_Wpy(target, duration)
-    local elapsed, angle = 0, 0
-    while elapsed < duration do
-        local dt = v_Lmk.Heartbeat:Wait()
-        elapsed = elapsed + dt
-        angle = angle + 4 * dt
+local function f_Wpy(target)
+    local angle = 0
+    local chatted = false
 
-        if not target or not target.Parent then break end
+    while target and target.Parent and v_QpZ:FindFirstChild(target.Name) do
+        local dt = v_Lmk.Heartbeat:Wait()
+        angle = angle + 4 * dt
 
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
         if myHrp and tgtHrp then
+            -- Chat once when we lock on / start following
+            if not chatted then
+                chatted = true
+                if t_Fjd and #t_Fjd > 0 then 
+                    f_Nra(t_Fjd[math.random(#t_Fjd)]) 
+                end
+            end
+
             pcall(function()
                 local targetAssembly = tgtHrp.AssemblyRootPart or tgtHrp
                 local targetVel = targetAssembly.AssemblyLinearVelocity
@@ -562,24 +547,12 @@ local function f_Wpy(target, duration)
                 myHrp.CFrame = finalTargetCFrame
             end)
         else
-            break
+            task.wait(0.2)
         end
     end
 end
 
-local function f_Kxs(visited)
-    local t = {}
-    for _, p in ipairs(v_QpZ:GetPlayers()) do
-        if p ~= plr and not visited[p] and f_Hbv(p) then
-            table.insert(t, p)
-        end
-    end
-    return t
-end
-
--- PERSISTENT CHATTED TRACKER (PREVENTS MULTIPLE MESSAGES PER PLAYER)
-local chattedPlayers = {}
-
+-- SEARCH / SPIRAL UNTIL "NoahBatmanSam" IS FOUND IN THE SERVER
 local function f_Ryn()
     local hrp = f_Lzt()
     if not hrp then
@@ -594,79 +567,45 @@ local function f_Ryn()
     if not startHrp then return end
     
     local origin = startHrp.Position
-    local total = #v_QpZ:GetPlayers() - 1
-    local visited = {}
-    local found = 0
-    local lastFound = os.clock()
 
-    for _, p in ipairs(f_Kxs(visited)) do
-        visited[p] = true; found = found + 1
-        
-        -- Strictly single message per player check
-        if not chattedPlayers[p] then
-            chattedPlayers[p] = true
-            if t_Fjd and #t_Fjd > 0 then 
-                f_Nra(t_Fjd[math.random(#t_Fjd)]) 
-            end
+    while true do
+        -- Check if target is already in the server and loaded
+        local target = v_QpZ:FindFirstChild("NoahBatmanSam")
+        if target and f_Hbv(target) then
+            -- Constantly follow them indefinitely until they leave the server
+            f_Wpy(target)
         end
 
-        f_Wpy(p, n_Ptl)
-        lastFound = os.clock()
-    end
-    if found >= total then 
-        f_ForceHop()
-        return 
-    end
-
-    while found < total do
+        -- If not found, run a spiral scan search loop
         local spiral = f_Dvi()
-        local breakOuter = false
+        local foundTarget = false
 
         for _, cell in ipairs(spiral) do
-            if found >= total then 
-                breakOuter = true
-                f_ForceHop()
-                break 
-            end
-
-            if os.clock() - lastFound >= n_Tmo then
-                if f_Sho() then 
-                    return 
-                end
-                lastFound = os.clock()
+            -- Re-check if target joined while searching
+            target = v_QpZ:FindFirstChild("NoahBatmanSam")
+            if target and f_Hbv(target) then
+                foundTarget = true
                 break
             end
 
             local pos = origin + Vector3.new(cell.X * n_Gxb, n_Zmq2, cell.Y * n_Gxb)
             f_Mqe(pos)
 
-            for _, p in ipairs(f_Kxs(visited)) do
-                visited[p] = true; found = found + 1
-                
-                -- Strictly single message per player check
-                if not chattedPlayers[p] then
-                    chattedPlayers[p] = true
-                    if t_Fjd and #t_Fjd > 0 then 
-                        f_Nra(t_Fjd[math.random(#t_Fjd)]) 
-                    end
-                end
-
-                f_Wpy(p, n_Ptl)
-                lastFound = os.clock()
-                local curHrp = f_Lzt()
-                if curHrp then origin = curHrp.Position end
-                if found >= total then 
-                    breakOuter = true
-                    f_ForceHop()
-                    break 
-                end
-            end
-            if breakOuter then break end
+            local curHrp = f_Lzt()
+            if curHrp then origin = curHrp.Position end
         end
-        if breakOuter then break end
+
+        if foundTarget then
+            continue
+        end
+
+        -- If spiral completes and target is still not found in this server, server hop to find them
+        print("Target not found in current server - server hopping...")
+        if f_Sho() then
+            return
+        end
+        task.wait(2)
     end
-    
-    f_ForceHop()
 end
 
 local success, err = pcall(function()
@@ -685,7 +624,7 @@ end)
 if not success then
     print("Script error: " .. tostring(err))
     task.wait(2)
-    f_ForceHop()
+    f_Sho()
 end
 
 _G.TeleportState.IsRunning = false
