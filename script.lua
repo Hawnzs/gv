@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Uses Infinite Yield's "fly" mechanics (body velocity/forces) to smoothly fly around or violently spazz at targets instead of CFrame teleporting.
+-- Target-Specific Mode: Uses Infinite Yield's flight forces to aggressively lunge and ram in/out violently during attacks.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -350,7 +350,7 @@ local function handleChatInput(senderName, message)
                         currentChatTarget = p
                         isAttacking = true
                         hasSaidHiForCurrentTarget = false 
-                        print("[GVS] Violent attack target locked via fly: " .. p.Name)
+                        print("[GVS] Violent lunge attack target locked: " .. p.Name)
                         return
                     end
                 end
@@ -415,13 +415,13 @@ local function stopInfiniteYieldFly()
     if bv then bv:Destroy(); bv = nil end
 end
 
--- ORBIT & ATTACK VIA INFINITE YIELD FLY FORCES
+-- ORBIT & VIOLENT IN/OUT RAMMING LOOP
 local function f_Wpy(target)
     local angle = 0
 
     while target and target.Parent and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
-        angle = angle + (isAttacking and 45 or 10) * dt
+        angle = angle + 10 * dt
 
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
@@ -444,8 +444,11 @@ local function f_Wpy(target)
 
                     local targetPos
                     if isAttacking then
-                        local randomJitter = Vector3.new(math.random(-5, 5), math.random(-3, 5), math.random(-5, 5))
-                        targetPos = predictedPos + Vector3.new(math.cos(angle) * 4, math.sin(tick() * 30) * 3, math.sin(angle) * 4) + randomJitter
+                        -- High-speed aggressive pulsing: repeatedly slam directly into target and dart backward instantly
+                        local ramCycle = math.sin(tick() * 12)
+                        local ramMultiplier = ramCycle > 0 and 1.2 or -3.5 -- Shoots way in, then shoots violently back out
+                        local ramOffset = Vector3.new(math.cos(angle) * (6 * ramMultiplier), math.sin(tick() * 20) * 4, math.sin(angle) * (6 * ramMultiplier))
+                        targetPos = predictedPos + ramOffset
                     else
                         local floatHeight = 2 + math.sin(tick() * 3) * 1
                         targetPos = predictedPos + Vector3.new(math.cos(angle) * 6, floatHeight, math.sin(angle) * 6)
@@ -453,7 +456,7 @@ local function f_Wpy(target)
 
                     local moveVector = (targetPos - myHrp.Position)
                     if bv then
-                        bv.velocity = moveVector * (isAttacking and 25 or 14)
+                        bv.velocity = moveVector * (isAttacking and 35 or 14)
                     end
                     if bg then
                         bg.cframe = CFrame.new(myHrp.Position, predictedPos)
