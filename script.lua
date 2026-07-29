@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Target-Specific Mode: Idles at spawn until "avabow13" chats a target's name, then says "hi [FullName]" and teleports/spins around them. Resets on "stop".
+-- Target-Specific Mode: Idles at spawn until "avabow13" chats a target's name, then says "hi [FullName]" only when locked on, and teleports/spins around them. Resets on "stop".
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -462,6 +462,7 @@ end
 -- GLOBAL TARGET CACHE VARIABLE CONTROLLED BY "avabow13"
 local currentChatTarget = nil
 local currentChatTargetName = nil
+local hasSaidHiForCurrentTarget = false
 
 -- CHAT LISTENER FOR AVABOW13 (Map-Wide Streaming Scanner & Stop Command)
 local function handleChatInput(senderName, message)
@@ -473,6 +474,7 @@ local function handleChatInput(senderName, message)
         if trimmedMessage == "stop" then
             currentChatTarget = nil
             currentChatTargetName = nil
+            hasSaidHiForCurrentTarget = false
             print("[GVS] Target cleared and reset by stop command.")
             f_Nra("stopped")
             return
@@ -485,8 +487,8 @@ local function handleChatInput(senderName, message)
                 if pName:sub(1, #trimmedMessage) == trimmedMessage or pDisplayName:sub(1, #trimmedMessage) == trimmedMessage or pName:find(trimmedMessage) then
                     currentChatTarget = p
                     currentChatTargetName = p.Name
-                    print("[GVS] Locked global target username: " .. p.Name)
-                    f_Nra("hi " .. p.Name)
+                    hasSaidHiForCurrentTarget = false -- Reset so it says hi only when actually locked on
+                    print("[GVS] Searching/Target requested username: " .. p.Name)
                     break
                 end
             end
@@ -519,24 +521,30 @@ else
     end)
 end
 
--- TELEPORT & FAST SPIN ORBIT HOOK WITH MAP-WIDE CFRAME SWEEP FINDER
+-- TELEPORT & FAST SPIN ORBIT HOOK WITH ULTRA-FAST MAP-WIDE SWEEPING
 local SPEED_THRESHOLD = 16
 
--- Pre-defined grid coordinates covering typical map layouts to sweep search via CFrame teleporting
+-- High-density grid points covering the entire map for lightning-fast sweeping
 local mapGridPoints = {
     Vector3.new(0, 50, 0),
-    Vector3.new(500, 50, 0),
-    Vector3.new(-500, 50, 0),
-    Vector3.new(0, 50, 500),
-    Vector3.new(0, 50, -500),
-    Vector3.new(500, 50, 500),
-    Vector3.new(-500, 50, -500),
-    Vector3.new(1000, 50, 0),
-    Vector3.new(-1000, 50, 0),
-    Vector3.new(0, 50, 1000),
-    Vector3.new(0, 50, -1000),
-    Vector3.new(1000, 50, 1000),
-    Vector3.new(-1000, 50, -1000),
+    Vector3.new(350, 50, 0),
+    Vector3.new(-350, 50, 0),
+    Vector3.new(0, 50, 350),
+    Vector3.new(0, 50, -350),
+    Vector3.new(350, 50, 350),
+    Vector3.new(-350, 50, -350),
+    Vector3.new(700, 50, 0),
+    Vector3.new(-700, 50, 0),
+    Vector3.new(0, 50, 700),
+    Vector3.new(0, 50, -700),
+    Vector3.new(700, 50, 700),
+    Vector3.new(-700, 50, -700),
+    Vector3.new(1050, 50, 0),
+    Vector3.new(-1050, 50, 0),
+    Vector3.new(0, 50, 1050),
+    Vector3.new(0, 50, -1050),
+    Vector3.new(1050, 50, 1050),
+    Vector3.new(-1050, 50, -1050),
 }
 
 local function f_Wpy(target)
@@ -550,7 +558,6 @@ local function f_Wpy(target)
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
 
-        -- If target root part isn't loaded/found yet, check character descendants
         if not tgtHrp and target.Character then
             tgtHrp = target.Character:FindFirstChild("HumanoidRootPart") or target.Character:FindFirstChild("Head")
         end
@@ -558,7 +565,13 @@ local function f_Wpy(target)
         if myHrp then
             pcall(function()
                 if tgtHrp then
-                    -- Target found! Force client replication focus and lock onto them with velocity prediction & orbit
+                    -- Target found and loaded! Send "hi [FullName]" exactly once upon locking on
+                    if not hasSaidHiForCurrentTarget then
+                        hasSaidHiForCurrentTarget = true
+                        print("[GVS] Locked global target username: " .. target.Name)
+                        f_Nra("hi " .. target.Name)
+                    end
+
                     plr.ReplicationFocus = tgtHrp
                     pcall(function()
                         plr:RequestStreamAroundAsync(tgtHrp.Position, 2)
@@ -590,12 +603,12 @@ local function f_Wpy(target)
                     local finalTargetCFrame = CFrame.new(predictedPos + leadFrontOffset + orbitOffset, predictedPos)
                     myHrp.CFrame = finalTargetCFrame
                 else
-                    -- Target not loaded yet; actively CFrame sweep across map grid points to force-load and find them
+                    -- Still searching / sweeping map grid points to load target
                     local sweepPos = mapGridPoints[gridIndex]
                     if sweepPos then
                         plr.ReplicationFocus = myHrp
                         pcall(function()
-                            plr:RequestStreamAroundAsync(sweepPos, 100)
+                            plr:RequestStreamAroundAsync(sweepPos, 150)
                         end)
                         myHrp.AssemblyLinearVelocity = Vector3.zero
                         myHrp.AssemblyAngularVelocity = Vector3.zero
@@ -606,14 +619,13 @@ local function f_Wpy(target)
                             gridIndex = 1
                         end
                     end
-                    task.wait(0.4)
                 end
             end)
         else
-            task.wait(0.1)
+            task.wait(0.05)
         end
     end
-    -- Reset replication focus back to local character when target clears
+
     pcall(function()
         if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             plr.ReplicationFocus = plr.Character.HumanoidRootPart
@@ -637,8 +649,9 @@ local success, err = pcall(function()
         else
             currentChatTarget = nil
             currentChatTargetName = nil
+            hasSaidHiForCurrentTarget = false
         end
-        task.wait(0.5)
+        task.wait(0.2)
     end
 end)
 
