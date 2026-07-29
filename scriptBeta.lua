@@ -31,7 +31,7 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             _G.TeleportState.TeleportCheck = true
             _G.TeleportState.TeleportRetries = 0
             -- UPDATED: Your new GitHub URL
-            local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
+            local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/scriptBeta.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
