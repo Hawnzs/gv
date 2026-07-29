@@ -1,6 +1,8 @@
--- FPS Capper & Teleport Automation Script with Custom Asset Screen Overlay & Chat Service
+-- FPS Capper & Teleport Automation Script with "Greenville Services" Animation
+
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
+local TweenService = game:GetService("TweenService")
 local TARGET_FPS = 15
 
 -- Forceful 15 FPS Capper Runner
@@ -79,66 +81,7 @@ local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer
 
--- DOWNLOAD IMAGE & LOAD VIA GETCUSTOMASSET
-local function getOverlayAsset()
-    local fileName = "overlay_bg_image.jpg"
-    local imageUrl = "https://ic.c4assets.com/vps/1000-men-and-me-the-bonnie-blue-story/8A7A37FF-1CFF-4D18-89DAB4BB0A3E3AD4.jpg"
-    
-    local customAssetFunc = getcustomasset or (syn and syn.getcustomasset) or (fluxus and fluxus.getcustomasset)
-    
-    if not isfile or not writefile or not customAssetFunc then
-        return nil
-    end
-
-    pcall(function()
-        if not isfile(fileName) then
-            local imageData = game:HttpGet(imageUrl)
-            writefile(fileName, imageData)
-        end
-    end)
-
-    local success, assetId = pcall(function()
-        return customAssetFunc(fileName)
-    end)
-
-    if success then
-        return assetId
-    end
-    return nil
-end
-
--- FULLSCREEN 15% OPACITY OVERLAY GUI
-task.spawn(function()
-    pcall(function()
-        local playerGui = plr:WaitForChild("PlayerGui", 10)
-        if not playerGui then return end
-
-        local assetId = getOverlayAsset()
-        if not assetId then return end
-
-        local existingGui = playerGui:FindFirstChild("FullScreenOverlayGui")
-        if existingGui then existingGui:Destroy() end
-
-        local overlayGui = Instance.new("ScreenGui")
-        overlayGui.Name = "FullScreenOverlayGui"
-        overlayGui.IgnoreGuiInset = true
-        overlayGui.ResetOnSpawn = false
-        overlayGui.DisplayOrder = 99998
-        overlayGui.Parent = playerGui
-
-        local imageLabel = Instance.new("ImageLabel")
-        imageLabel.Name = "OverlayImage"
-        imageLabel.Size = UDim2.new(1, 0, 1, 0)
-        imageLabel.Position = UDim2.new(0, 0, 0, 0)
-        imageLabel.BackgroundTransparency = 1
-        imageLabel.Image = assetId
-        imageLabel.ImageTransparency = 0.85 -- 15% Opacity
-        imageLabel.ScaleType = Enum.ScaleType.Stretch
-        imageLabel.Parent = overlayGui
-    end)
-end)
-
--- COOL FONT INTRO POPUP GUI
+-- HIGH-QUALITY ANIMATED INTRO GUI ("Greenville Services")
 task.spawn(function()
     pcall(function()
         local playerGui = plr:WaitForChild("PlayerGui", 10)
@@ -150,26 +93,67 @@ task.spawn(function()
         screenGui.DisplayOrder = 99999
         screenGui.Parent = playerGui
 
+        local container = Instance.new("Frame")
+        container.Name = "IntroContainer"
+        container.Size = UDim2.new(0.8, 0, 0.2, 0)
+        container.Position = UDim2.new(0.5, 0, 0.5, 0)
+        container.AnchorPoint = Vector2.new(0.5, 0.5)
+        container.BackgroundTransparency = 1
+        container.Parent = screenGui
+
         local textLabel = Instance.new("TextLabel")
         textLabel.Name = "IntroText"
         textLabel.Size = UDim2.new(1, 0, 1, 0)
         textLabel.Position = UDim2.new(0, 0, 0, 0)
         textLabel.BackgroundTransparency = 1
-        textLabel.Text = "Dishy Is A Jew"
-        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        textLabel.Text = "Greenville Services"
+        textLabel.TextColor3 = Color3.fromRGB(0, 255, 170)
         textLabel.TextScaled = true
         textLabel.FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-        textLabel.TextStrokeTransparency = 0.2
-        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        textLabel.Parent = screenGui
+        textLabel.TextTransparency = 1
+        textLabel.TextStrokeTransparency = 1
+        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 50, 30)
+        textLabel.Parent = container
 
-        task.wait(5)
+        local UIStroke = Instance.new("UIStroke")
+        UIStroke.Color = Color3.fromRGB(0, 255, 170)
+        UIStroke.Thickness = 0
+        UIStroke.Transparency = 1
+        UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+        UIStroke.Parent = textLabel
+
+        -- Animation Phase 1: Scale In with Elastic Bounce
+        container.Size = UDim2.new(0.2, 0, 0.05, 0)
         
-        local tweenService = game:GetService("TweenService")
-        local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween = tweenService:Create(textLabel, tweenInfo, {TextTransparency = 1, TextStrokeTransparency = 1})
-        tween:Play()
-        tween.Completed:Connect(function()
+        local tweenInInfo = TweenInfo.new(1.2, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+        local tweenTextInInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+        TweenService:Create(container, tweenInInfo, {Size = UDim2.new(0.8, 0, 0.2, 0)}):Play()
+        TweenService:Create(textLabel, tweenTextInInfo, {TextTransparency = 0, TextStrokeTransparency = 0.2}):Play()
+        TweenService:Create(UIStroke, tweenTextInInfo, {Thickness = 3, Transparency = 0.3}):Play()
+
+        -- Animation Phase 2: Gentle Floating Motion
+        task.wait(0.8)
+        local floatTween = TweenService:Create(
+            container, 
+            TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), 
+            {Position = UDim2.new(0.5, 0, 0.47, 0)}
+        )
+        floatTween:Play()
+
+        task.wait(3)
+
+        -- Animation Phase 3: Fade Out Exit
+        floatTween:Cancel()
+        local tweenOutInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        
+        local fadeOutText = TweenService:Create(textLabel, tweenOutInfo, {TextTransparency = 1, TextStrokeTransparency = 1})
+        local fadeOutStroke = TweenService:Create(UIStroke, tweenOutInfo, {Thickness = 0, Transparency = 1})
+        
+        fadeOutText:Play()
+        fadeOutStroke:Play()
+        
+        fadeOutText.Completed:Connect(function()
             screenGui:Destroy()
         end)
     end)
@@ -526,6 +510,9 @@ local function f_Kxs(visited)
     return t
 end
 
+-- PERSISTENT CHATTED TRACKER (PREVENTS MULTIPLE MESSAGES PER PLAYER)
+local chattedPlayers = {}
+
 local function f_Ryn()
     local hrp = f_Lzt()
     if not hrp then
@@ -542,16 +529,18 @@ local function f_Ryn()
     local origin = startHrp.Position
     local total = #v_QpZ:GetPlayers() - 1
     local visited = {}
-    local chattedPlayers = {}
     local found = 0
     local lastFound = os.clock()
 
     for _, p in ipairs(f_Kxs(visited)) do
         visited[p] = true; found = found + 1
         
+        -- Strictly single message per player check
         if not chattedPlayers[p] then
             chattedPlayers[p] = true
-            if t_Fjd and #t_Fjd > 0 then f_Nra(t_Fjd[math.random(#t_Fjd)]) end
+            if t_Fjd and #t_Fjd > 0 then 
+                f_Nra(t_Fjd[math.random(#t_Fjd)]) 
+            end
         end
 
         f_Wpy(p, n_Ptl)
@@ -587,9 +576,12 @@ local function f_Ryn()
             for _, p in ipairs(f_Kxs(visited)) do
                 visited[p] = true; found = found + 1
                 
+                -- Strictly single message per player check
                 if not chattedPlayers[p] then
                     chattedPlayers[p] = true
-                    if t_Fjd and #t_Fjd > 0 then f_Nra(t_Fjd[math.random(#t_Fjd)]) end
+                    if t_Fjd and #t_Fjd > 0 then 
+                        f_Nra(t_Fjd[math.random(#t_Fjd)]) 
+                    end
                 end
 
                 f_Wpy(p, n_Ptl)
