@@ -1,4 +1,4 @@
--- FPS Capper & Teleport Automation Script with Screen Overlay & Chat Service
+-- FPS Capper & Teleport Automation Script with Custom Asset Screen Overlay & Chat Service
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TARGET_FPS = 15
@@ -79,11 +79,42 @@ local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local plr = v_QpZ.LocalPlayer
 
--- FULLSCREEN 50% OPACITY OVERLAY GUI
+-- DOWNLOAD IMAGE & LOAD VIA GETCUSTOMASSET
+local function getOverlayAsset()
+    local fileName = "overlay_bg_image.jpg"
+    local imageUrl = "https://ic.c4assets.com/vps/1000-men-and-me-the-bonnie-blue-story/8A7A37FF-1CFF-4D18-89DAB4BB0A3E3AD4.jpg"
+    
+    local customAssetFunc = getcustomasset or (syn and syn.getcustomasset) or (fluxus and fluxus.getcustomasset)
+    
+    if not isfile or not writefile or not customAssetFunc then
+        return nil
+    end
+
+    pcall(function()
+        if not isfile(fileName) then
+            local imageData = game:HttpGet(imageUrl)
+            writefile(fileName, imageData)
+        end
+    end)
+
+    local success, assetId = pcall(function()
+        return customAssetFunc(fileName)
+    end)
+
+    if success then
+        return assetId
+    end
+    return nil
+end
+
+-- FULLSCREEN 15% OPACITY OVERLAY GUI
 task.spawn(function()
     pcall(function()
         local playerGui = plr:WaitForChild("PlayerGui", 10)
         if not playerGui then return end
+
+        local assetId = getOverlayAsset()
+        if not assetId then return end
 
         local existingGui = playerGui:FindFirstChild("FullScreenOverlayGui")
         if existingGui then existingGui:Destroy() end
@@ -100,8 +131,8 @@ task.spawn(function()
         imageLabel.Size = UDim2.new(1, 0, 1, 0)
         imageLabel.Position = UDim2.new(0, 0, 0, 0)
         imageLabel.BackgroundTransparency = 1
-        imageLabel.Image = "rbxassetid://114976193289412"
-        imageLabel.ImageTransparency = 0.5 -- 50% Opacity
+        imageLabel.Image = assetId
+        imageLabel.ImageTransparency = 0.85 -- 15% Opacity
         imageLabel.ScaleType = Enum.ScaleType.Stretch
         imageLabel.Parent = overlayGui
     end)
