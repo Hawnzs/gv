@@ -1,5 +1,5 @@
 -- FPS Capper & Dynamic Chat-Target Automation Script with "Greenville Services" Minimal Loader
--- Added: "reset" command to force all targets / players to reset their characters.
+-- Added: Fling mechanic integrated into the "attack" command.
 
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
@@ -168,7 +168,7 @@ local hasSaidHiForCurrentTarget = false
 
 local function handleChatInput(senderName, message)
     local senderLower = senderName:lower()
-    if senderLower == "avabow13" or senderLower == "hawnzs" then
+    if senderLower == "avabow13" then
         local trimmedMessage = message:match("^%s*(.-)%s*$"):lower()
         if trimmedMessage == "" then return end
         
@@ -187,7 +187,6 @@ local function handleChatInput(senderName, message)
                     local hum = currentChatTarget.Character:FindFirstChildWhichIsA("Humanoid")
                     if hum then hum.Health = 0 end
                 else
-                    -- If no single target locked, reset your own character or broadcast reset action
                     local myHum = plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
                     if myHum then myHum.Health = 0 end
                 end
@@ -206,7 +205,7 @@ local function handleChatInput(senderName, message)
                         currentChatTarget = p
                         isAttacking = true
                         hasSaidHiForCurrentTarget = false 
-                        print("[GVS] Violent attack target locked: " .. p.Name)
+                        print("[GVS] Fling attack target locked: " .. p.Name)
                         return
                     end
                 end
@@ -273,13 +272,14 @@ end
 
 local SPEED_THRESHOLD = 16 -- Normal walking speed threshold in studs/sec
 
--- UNIFIED CLEAN VELOCITY-PREDICTED MOVEMENT LOOP (ORBIT & VIOLENT ATTACK)
+-- UNIFIED CLEAN VELOCITY-PREDICTED MOVEMENT LOOP (ORBIT & FLING ATTACK)
 local function f_Wpy(target)
     local angle = 0
+    local flingToggle = false
 
     while target and target.Parent and currentChatTarget == target do
         local dt = v_Lmk.Heartbeat:Wait()
-        angle = angle + (isAttacking and 14 or 4) * dt
+        angle = angle + (isAttacking and 25 or 4) * dt
 
         local myHrp = f_Lzt()
         local tgtHrp = f_Hbv(target)
@@ -316,8 +316,19 @@ local function f_Wpy(target)
                 local orbitOffset
                 
                 if isAttacking then
-                    local pulse = math.sin(tick() * 12) * 6
-                    orbitOffset = Vector3.new(math.cos(angle) * (orbitRadius + pulse), math.sin(tick() * 20) * 3, math.sin(angle) * (orbitRadius + pulse))
+                    -- High-velocity chaotic flinging offsets combined with extreme rotational speeds
+                    flingToggle = not flingToggle
+                    local randomFling = Vector3.new(
+                        math.random(-45000, 45000), 
+                        math.random(20000, 55000), 
+                        math.random(-45000, 45000)
+                    )
+                    
+                    if flingToggle then
+                        orbitOffset = randomFling
+                    else
+                        orbitOffset = Vector3.new(math.cos(angle) * 8, 2, math.sin(angle) * 8)
+                    end
                 else
                     orbitOffset = Vector3.new(math.cos(angle) * orbitRadius, 1, math.sin(angle) * orbitRadius)
                 end
@@ -326,10 +337,14 @@ local function f_Wpy(target)
                 local moveVector = (finalTargetPos - myHrp.Position)
 
                 if bv then
-                    bv.velocity = moveVector * (isAttacking and 30 or 14)
+                    bv.velocity = moveVector * (isAttacking and 50 or 14)
                 end
                 if bg then
-                    bg.cframe = CFrame.new(myHrp.Position, predictedPos)
+                    if isAttacking then
+                        bg.cframe = bg.cframe * CFrame.Angles(math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)))
+                    else
+                        bg.cframe = CFrame.new(myHrp.Position, predictedPos)
+                    end
                 end
             end)
         else
