@@ -1,3 +1,7 @@
+-- ================= CONFIGURATION =================
+_G.DiscordWebhook = "https://discord.com/api/webhooks/1488670602452668457/cKNv4-rxVuutIeMBzwKiIb76DxRs0ceFRM_5W4b6El18GK_OYlFrN5NizgF88feaEVpy"
+-- ================================================
+
 local function missing(expectedType, value, fallback)
     if type(value) == expectedType then
         return value
@@ -13,7 +17,7 @@ if type(_G.KeepInfYield) ~= "boolean" then
     _G.KeepInfYield = true
 end
 
--- FIXED: Store teleport state in _G so it persists across teleports
+-- Store teleport state in _G so it persists across teleports
 if type(_G.TeleportState) ~= "table" then
     _G.TeleportState = {
         TeleportCheck = false,
@@ -25,47 +29,6 @@ if type(_G.TeleportState) ~= "table" then
     }
 end
 
-game.Players.LocalPlayer.OnTeleport:Connect(function(State)
-    if State == Enum.TeleportState.InProgress then
-        if _G.KeepInfYield and not _G.TeleportState.TeleportCheck and queueteleport then
-            _G.TeleportState.TeleportCheck = true
-            _G.TeleportState.TeleportRetries = 0
-            -- UPDATED: Your new GitHub URL
-            local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
-
-            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
-            local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
-
-            -- FIXED: Reset all state when the script loads on the new server
-            local payload = string.format([[
-                -- Reset all teleport state
-                if type(_G.TeleportState) ~= "table" then
-                    _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
-                else
-                    _G.TeleportState.TeleportCheck = false
-                    _G.TeleportState.TeleportRetries = 0
-                    _G.TeleportState.ServerHopTimer = false
-                    _G.TeleportState.ScriptFinished = false
-                    _G.TeleportState.IsRunning = false
-                end
-                
-                -- Wait for character to fully load
-                task.wait(3)
-                
-                -- Reload the script with 'true' to force fresh download
-                task.delay(2, function()
-                    _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
-                    loadstring(game:HttpGet('%s', true))()
-                end)
-            ]], encodedChats, scriptUrl)
-
-            queueteleport(payload)
-        end
-    elseif State == Enum.TeleportState.Failed then
-        _G.TeleportState.TeleportCheck = false
-    end
-end)
-
 local v_QpZ = game:GetService("Players")
 local v_Lmk = game:GetService("RunService")
 local v_Wne = game:GetService("ReplicatedStorage")
@@ -74,6 +37,44 @@ local v_Tps = game:GetService("TeleportService")
 local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
+
+local plr = v_QpZ.LocalPlayer
+while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
+
+-- Discord Webhook Sender Function
+local function sendWebhook(title, description, color)
+    if not _G.DiscordWebhook or _G.DiscordWebhook == "YOUR_DISCORD_WEBHOOK_URL_HERE" then return end
+    
+    task.spawn(function()
+        pcall(function()
+            local data = {
+                ["embeds"] = {{
+                    ["title"] = title,
+                    ["description"] = description,
+                    ["color"] = color or 3447003, -- Default blue
+                    ["footer"] = {
+                        ["text"] = "Player: " .. plr.Name .. " | ID: " .. tostring(plr.UserId)
+                    },
+                    ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                }}
+            }
+            local encodedData = v_Hts:JSONEncode(data)
+            
+            local reqFunc = syn and syn.request or http_request or request
+            if reqFunc then
+                reqFunc({
+                    Url = _G.DiscordWebhook,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = encodedData
+                })
+            end
+        end)
+    end)
+end
+
+-- Send initial startup log
+sendWebhook("🚀 Script Started", "Player **" .. plr.Name .. "** has started running the script.\nPlace ID: `" .. game.PlaceId .. "`", 65280)
 
 local function httpRequest(url)
     local success, result
@@ -105,8 +106,42 @@ if _G.TeleportState.IsRunning then
 end
 _G.TeleportState.IsRunning = true
 
-local plr = v_QpZ.LocalPlayer
-while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
+game.Players.LocalPlayer.OnTeleport:Connect(function(State)
+    if State == Enum.TeleportState.InProgress then
+        if _G.KeepInfYield and not _G.TeleportState.TeleportCheck and queueteleport then
+            _G.TeleportState.TeleportCheck = true
+            _G.TeleportState.TeleportRetries = 0
+            local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
+
+            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
+            local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
+
+            local payload = string.format([[
+                _G.DiscordWebhook = "%s"
+                if type(_G.TeleportState) ~= "table" then
+                    _G.TeleportState = {TeleportCheck = false, TeleportRetries = 0, MaxRetries = 3, ServerHopTimer = false, ScriptFinished = false, IsRunning = false}
+                else
+                    _G.TeleportState.TeleportCheck = false
+                    _G.TeleportState.TeleportRetries = 0
+                    _G.TeleportState.ServerHopTimer = false
+                    _G.TeleportState.ScriptFinished = false
+                    _G.TeleportState.IsRunning = false
+                end
+                
+                task.wait(3)
+                
+                task.delay(2, function()
+                    _G.t_Fjd = game:GetService("HttpService"):JSONDecode([=[%s]=])
+                    loadstring(game:HttpGet('%s', true))()
+                end)
+            ]], _G.DiscordWebhook, encodedChats, scriptUrl)
+
+            queueteleport(payload)
+        end
+    elseif State == Enum.TeleportState.Failed then
+        _G.TeleportState.TeleportCheck = false
+    end
+end)
 
 -- Wait for character to fully load
 task.wait(2)
@@ -123,7 +158,6 @@ end
 if workspace.CurrentCamera then workspace.CurrentCamera:Destroy() end
 task.wait(0.1)
 
--- Wait for character and humanoid
 local attempts = 0
 repeat 
     task.wait(0.5)
@@ -135,12 +169,10 @@ repeat
     end
 until plr.Character and plr.Character:FindFirstChildWhichIsA("Humanoid")
 
--- Double check character exists
 if not plr.Character then
     plr.CharacterAdded:Wait()
 end
 
--- Camera setup
 local humanoid = plr.Character:FindFirstChildWhichIsA("Humanoid")
 if humanoid then
     workspace.CurrentCamera.CameraSubject = humanoid
@@ -163,7 +195,6 @@ local n_Tmo = 60
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
 
--- UPDATED: Your custom chat messages
 if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
         "/gvse",
@@ -197,7 +228,6 @@ local function f_Nra(s_Yui)
     end
 end
 
--- FIXED: Use _G.TeleportState for retry limiting
 local function f_Sho()
     if _G.TeleportState.TeleportRetries >= _G.TeleportState.MaxRetries then
         _G.TeleportState.TeleportRetries = 0
@@ -233,6 +263,7 @@ local function f_Sho()
         _G.TeleportState.ServerHopTimer = true
         _G.TeleportState.ScriptFinished = true
         _G.TeleportState.IsRunning = false
+        sendWebhook("🔄 Server Hopping", "Successfully found a new server. Teleporting now...", 16776960)
         v_Tps:TeleportToPlaceInstance(id_Plc, t_Srv[math.random(1, #t_Srv)], plr)
         return true
     end
@@ -241,7 +272,6 @@ local function f_Sho()
     return false
 end
 
--- NEW: Function to force server hop when script finishes
 local function f_ForceHop()
     if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
         print("Script finished - forcing server hop!")
@@ -257,6 +287,7 @@ task.spawn(function()
     task.wait(180)
     if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
         print("180 seconds passed - forcing server hop!")
+        sendWebhook("⚠️ Safety Net Triggered", "180-second timeout reached. Forcing a server hop.", 16753920)
         _G.TeleportState.ServerHopTimer = true
         _G.TeleportState.ScriptFinished = true
         _G.TeleportState.IsRunning = false
@@ -264,7 +295,6 @@ task.spawn(function()
     end
 end)
 
--- FIXED: Use _G.TeleportState for retry limiting
 v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
 
@@ -280,7 +310,6 @@ v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     end
 end)
 
--- FIXED: Use _G.TeleportState for retry limiting
 v_Gui.ErrorMessageChanged:Connect(function(message)
     if message and (string.match(string.lower(message), "server is full") or string.match(string.lower(message), "another server")) then
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
@@ -356,10 +385,8 @@ local function f_Kxs(visited)
 end
 
 local function f_Ryn()
-    -- Wait for character root part
     local hrp = f_Lzt()
     if not hrp then
-        print("Waiting for HumanoidRootPart...")
         repeat 
             task.wait(0.5)
             hrp = f_Lzt()
@@ -427,11 +454,8 @@ local function f_Ryn()
     f_ForceHop()
 end
 
--- Main execution with error recovery
 local success, err = pcall(function()
-    -- Wait for character and root part
     if not (plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")) then
-        print("Waiting for character...")
         plr.CharacterAdded:Wait()
         repeat 
             task.wait(0.1) 
@@ -444,10 +468,9 @@ end)
 
 if not success then
     print("Script error: " .. tostring(err))
+    sendWebhook("❌ Script Error", "An error occurred:\n```" .. tostring(err) .. "```", 16711680)
     task.wait(2)
-    -- Try to recover by force hopping
     f_ForceHop()
 end
 
--- Clean up
 _G.TeleportState.IsRunning = false
