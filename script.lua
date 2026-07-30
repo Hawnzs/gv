@@ -250,7 +250,7 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             _G.TeleportState.TeleportRetries = 0
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
-            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "broke? /gvse", "slow cars? /gvse", "want to larp? /gvse"}
+            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "slow cars? /gvse", "broke? /gvse", "join /gvse", "Greenville Services"}
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
 
             local payload = string.format([[
@@ -337,7 +337,7 @@ if type(_G.t_Fjd) ~= "table" then
         "slow cars? /gvse",
         "broke? /gvse",
         "join /gvse",
-        "Greenville Services",
+        "Greenville Services"
     }
 end
 local t_Fjd = _G.t_Fjd
