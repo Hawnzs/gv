@@ -17,7 +17,6 @@ if type(_G.KeepInfYield) ~= "boolean" then
     _G.KeepInfYield = true
 end
 
--- Store teleport state in _G so it persists across teleports
 if type(_G.TeleportState) ~= "table" then
     _G.TeleportState = {
         TeleportCheck = false,
@@ -43,10 +42,12 @@ local v_Lighting = game:GetService("Lighting")
 local plr = v_QpZ.LocalPlayer
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
 
--- ================= FPS BOOST & OPTIMIZATION =================
+-- Initial random stagger to prevent multi-account collision on start
+task.wait(math.random(1, 4))
+
+-- ================= FPS BOOST & MEMORY MANAGEMENT =================
 task.spawn(function()
     pcall(function()
-        -- Lighting adjustments for performance
         v_Lighting.GlobalShadows = false
         v_Lighting.FogEnd = 9e9
         for _, v in ipairs(v_Lighting:GetChildren()) do
@@ -55,7 +56,6 @@ task.spawn(function()
             end
         end
 
-        -- Remove decals, textures, particles, smoke, fire, and unnecessary effects
         local function cleanInstance(parent)
             for _, obj in ipairs(parent:GetDescendants()) do
                 if obj:IsA("Texture") or obj:IsA("Decal") or obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("Trail") or obj:IsA("Beam") then
@@ -69,7 +69,6 @@ task.spawn(function()
 
         cleanInstance(workspace)
 
-        -- Automatically clean newly added objects
         workspace.DescendantAdded:Connect(function(obj)
             pcall(function()
                 if obj:IsA("Texture") or obj:IsA("Decal") or obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("Trail") or obj:IsA("Beam") then
@@ -82,7 +81,16 @@ task.spawn(function()
         end)
     end)
 end)
--- ============================================================
+
+-- Periodic Garbage Collection to prevent RAM bloat on multi-account setups
+task.spawn(function()
+    while task.wait(300) do
+        pcall(function()
+            collectgarbage("collect")
+        end)
+    end
+end)
+-- =================================================================
 
 -- ================= FORCED CHAT UI LOADER =================
 task.spawn(function()
@@ -98,14 +106,10 @@ task.spawn(function()
         end)
 
         local chatWindowConfig = v_Rtd:FindFirstChild("ChatWindowConfiguration")
-        if chatWindowConfig then
-            chatWindowConfig.Enabled = true
-        end
+        if chatWindowConfig then chatWindowConfig.Enabled = true end
 
         local chatInputBarConfig = v_Rtd:FindFirstChild("ChatInputBarConfiguration")
-        if chatInputBarConfig then
-            chatInputBarConfig.Enabled = true
-        end
+        if chatInputBarConfig then chatInputBarConfig.Enabled = true end
 
         if v_Rtd.ChatVersion == Enum.ChatVersion.TextChatService then
             local generalChannel = v_Rtd.TextChannels:FindFirstChild("RBXGeneral")
@@ -177,7 +181,6 @@ task.spawn(function()
 end)
 -- ============================================================
 
--- Discord Webhook Sender Function
 local function sendWebhook(title, description, color)
     if not _G.DiscordWebhook or _G.DiscordWebhook == "YOUR_DISCORD_WEBHOOK_URL_HERE" then return end
     
@@ -209,7 +212,7 @@ local function sendWebhook(title, description, color)
     end)
 end
 
-sendWebhook("🚀 Script Started", "Player **" .. plr.Name .. "** has started running the script with FPS boost.\nPlace ID: `" .. game.PlaceId .. "`", 65280)
+sendWebhook("🚀 Script Started", "Player **" .. plr.Name .. "** has started running the script with optimized multi-account handling.\nPlace ID: `" .. game.PlaceId .. "`", 65280)
 
 local function httpRequest(url)
     local success, result
@@ -331,9 +334,10 @@ local id_Job = game.JobId
 if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
         "/gvse",
+        "want to larp? /gvse",
         "slow cars? /gvse",
         "broke? /gvse",
-        "join /gvse",
+        "glv3away in /gvse"
     }
 end
 local t_Fjd = _G.t_Fjd
@@ -347,9 +351,7 @@ task.spawn(function()
                 v_Sgi:SetCore("ChatActive", true)
             else
                 local chatConfig = v_Rtd:FindFirstChild("ChatWindowConfiguration")
-                if chatConfig then
-                    chatConfig.Enabled = true
-                end
+                if chatConfig then chatConfig.Enabled = true end
             end
         end)
     end
@@ -364,22 +366,31 @@ local function f_Nra(s_Yui)
     end
 end
 
+-- Enhanced server hopping with robust rate-limit catching and backoff logging
 local function f_Sho()
     if _G.TeleportState.TeleportRetries >= _G.TeleportState.MaxRetries then
         _G.TeleportState.TeleportRetries = 0
         _G.TeleportState.TeleportCheck = false
+        sendWebhook("⚠️ Rate Limit / Hop Limit", "Reached max retries or rate-limit block. Resetting hop state.", 16753920)
         return false
     end
+
+    -- Staggered jitter delay per account
+    task.wait(math.random(2, 6))
 
     local s_Req = httpRequest("https://games.roblox.com/v1/games/" .. id_Plc .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
     if not s_Req then 
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
+        local backoff = 3 * _G.TeleportState.TeleportRetries
+        task.wait(backoff)
         return false 
     end
 
     local ok_Bod, t_Bod = pcall(function() return v_Hts:JSONDecode(s_Req) end)
     if not ok_Bod or not t_Bod or not t_Bod.data then 
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
+        local backoff = 3 * _G.TeleportState.TeleportRetries
+        task.wait(backoff)
         return false 
     end
 
@@ -405,6 +416,7 @@ local function f_Sho()
     end
 
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
+    task.wait(3 * _G.TeleportState.TeleportRetries)
     return false
 end
 
@@ -434,7 +446,7 @@ v_Tps.TeleportInitFailed:Connect(function(player, teleportResult, errorMessage)
     _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
 
     if _G.TeleportState.TeleportRetries < _G.TeleportState.MaxRetries then
-        task.wait(1)
+        task.wait(math.random(3, 5))
         f_Sho()
     else
         _G.TeleportState.TeleportRetries = 0
@@ -450,7 +462,7 @@ v_Gui.ErrorMessageChanged:Connect(function(message)
         _G.TeleportState.TeleportRetries = _G.TeleportState.TeleportRetries + 1
 
         if _G.TeleportState.TeleportRetries < _G.TeleportState.MaxRetries then
-            task.wait(1)
+            task.wait(math.random(3, 5))
             f_Sho()
         else
             _G.TeleportState.TeleportRetries = 0
