@@ -1,5 +1,5 @@
 -- ================= CONFIGURATION =================
-_G.DiscordWebhook = "https://discord.com/api/webhooks/1532202170609307658/_qiWvJi48xm78oeGu2xq7GtetUagBjuqfAnAnfjcvPuxvBDBFto4K1VxHT-pLiyLoRJo"
+_G.DiscordWebhook = "https://discord.com/api/webhooks/1532265932628561981/Pt0UCo-rtA9xGJ2HbQkUuXTwlZ9_6eAR5crHWPmF5muuhRlw8beBeE0V1N-zlgtLapgd"
 -- ================================================
 
 local function missing(expectedType, value, fallback)
