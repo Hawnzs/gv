@@ -251,26 +251,10 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {
-                "looking to earn? /gvse",
-                "want to progress? /gvse",
-                "build your balance /gvse",
-                "earn more today /gvse",
-                "save time /gvse",
-                "make progress /gvse",
-                "level up faster /gvse",
-                "need a boost? /gvse",
-                "ready to start? /gvse",
-                "join today /gvse",
-                "check us out /gvse",
-                "worth a look /gvse",
-                "new members welcome /gvse",
+                "poor? /gvse",
+                "flex cars in /gvse",
                 "growing community /gvse",
-                "active every day /gvse",
-                "come join /gvse",
-                "don't miss out /gvse",
-                "see what we offer /gvse",
-                "get started /gvse",
-                "join /gvse"
+                "larp in /gvse"
             }
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
 
@@ -354,26 +338,10 @@ local id_Job = game.JobId
 
 if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
-        "looking to earn? /gvse",
-        "want to progress? /gvse",
-        "build your balance /gvse",
-        "earn more today /gvse",
-        "save time /gvse",
-        "make progress /gvse",
-        "level up faster /gvse",
-        "need a boost? /gvse",
-        "ready to start? /gvse",
-        "join today /gvse",
-        "check us out /gvse",
-        "worth a look /gvse",
-        "new members welcome /gvse",
+        "poor? /gvse",
+        "flex cars in /gvse",
         "growing community /gvse",
-        "active every day /gvse",
-        "come join /gvse",
-        "don't miss out /gvse",
-        "see what we offer /gvse",
-        "get started /gvse",
-        "join /gvse"
+        "larp in /gvse"
     }
 end
 local t_Fjd = _G.t_Fjd
