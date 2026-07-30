@@ -250,7 +250,13 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             _G.TeleportState.TeleportRetries = 0
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
-            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {"/gvse", "slow cars? /gvse", "broke? /gvse", "join /gvse", "Greenville Services"}
+            local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {
+                "/gvse",
+                "slow cars? /gvse",
+                "broke? /gvse",
+                "join /gvse",
+                "Greenville Services"
+            }
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
 
             local payload = string.format([[
@@ -331,38 +337,13 @@ local n_Tmo = 60
 local id_Plc = game.PlaceId
 local id_Job = game.JobId
 
-if type(_G.t_Fjd) ~= "table" then
+if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
-        "need cash? /gvse",
-        "want more money? /gvse",
-        "grow your wallet /gvse",
-        "build your funds /gvse",
-        "increase your balance /gvse",
-        "boost your cash /gvse",
-        "earn more today /gvse",
-        "cash made easy /gvse",
-        "looking for funds? /gvse",
-        "stack your cash /gvse",
-        "make more money /gvse",
-        "cash awaits /gvse",
-        "fill your wallet /gvse",
-        "earn with us /gvse",
-        "money goals? /gvse",
-        "cash on demand /gvse",
-        "more funds ahead /gvse",
-        "level up your cash /gvse",
-        "maximize your earnings /gvse",
-        "easy cash /gvse",
-        "cash experts /gvse",
-        "fund your goals /gvse",
-        "money made simple /gvse",
-        "need a boost? /gvse",
-        "start earning /gvse",
-        "better earnings /gvse",
-        "grow your earnings /gvse",
-        "cash starts here /gvse",
-        "get more funds /gvse",
-        "your cash solution /gvse"
+        "/gvse",
+        "slow cars? /gvse",
+        "broke? /gvse",
+        "join /gvse",
+        "Greenville Services"
     }
 end
 local t_Fjd = _G.t_Fjd
