@@ -251,11 +251,26 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
             local scriptUrl = "https://raw.githubusercontent.com/Hawnzs/gv/main/script.lua"
 
             local currentChats = type(_G.t_Fjd) == "table" and _G.t_Fjd or {
-                "/gvse",
-                "slow cars? /gvse",
-                "broke? /gvse",
-                "join /gvse",
-                "Greenville Services"
+                "looking to earn? /gvse",
+                "want to progress? /gvse",
+                "build your balance /gvse",
+                "earn more today /gvse",
+                "save time /gvse",
+                "make progress /gvse",
+                "level up faster /gvse",
+                "need a boost? /gvse",
+                "ready to start? /gvse",
+                "join today /gvse",
+                "check us out /gvse",
+                "worth a look /gvse",
+                "new members welcome /gvse",
+                "growing community /gvse",
+                "active every day /gvse",
+                "come join /gvse",
+                "don't miss out /gvse",
+                "see what we offer /gvse",
+                "get started /gvse",
+                "join /gvse"
             }
             local encodedChats = game:GetService("HttpService"):JSONEncode(currentChats)
 
@@ -339,11 +354,26 @@ local id_Job = game.JobId
 
 if type(_G.t_Fjd) ~= "table" then 
     _G.t_Fjd = {
-        "/gvse",
-        "slow cars? /gvse",
-        "broke? /gvse",
-        "join /gvse",
-        "Greenville Services"
+        "looking to earn? /gvse",
+        "want to progress? /gvse",
+        "build your balance /gvse",
+        "earn more today /gvse",
+        "save time /gvse",
+        "make progress /gvse",
+        "level up faster /gvse",
+        "need a boost? /gvse",
+        "ready to start? /gvse",
+        "join today /gvse",
+        "check us out /gvse",
+        "worth a look /gvse",
+        "new members welcome /gvse",
+        "growing community /gvse",
+        "active every day /gvse",
+        "come join /gvse",
+        "don't miss out /gvse",
+        "see what we offer /gvse",
+        "get started /gvse",
+        "join /gvse"
     }
 end
 local t_Fjd = _G.t_Fjd
@@ -522,22 +552,23 @@ local function f_Wpy(target, duration)
         if myHrp and tgtHrp then
             pcall(function()
                 local cen = tgtHrp.Position
-                myHrp.AssemblyLinearVelocity = Vector3.zero
-                myHrp.AssemblyAngularVelocity = Vector3.zero
                 
-                local baseRadius = 5
                 if tgtHumanoid and tgtHumanoid.WalkSpeed > 16 then
                     local successPing, pingVal = pcall(function()
                         return v_Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
                     end)
-                    local ping = (successPing and pingVal) or 0.1
+                    local ping = (successPing and type(pingVal) == "number") and pingVal or 0.15
                     
-                    local extraSpeedBuffer = (tgtHumanoid.WalkSpeed - 16) * ping
-                    baseRadius = math.max(2, baseRadius - extraSpeedBuffer)
+                    local targetVelocity = tgtHrp.AssemblyLinearVelocity
+                    cen = cen + (targetVelocity * ping)
                 end
                 
-                local off = Vector3.new(math.cos(angle)*baseRadius, 0, math.sin(angle)*baseRadius)
-                myHrp.CFrame = CFrame.new(cen+off, cen)
+                myHrp.AssemblyLinearVelocity = Vector3.zero
+                myHrp.AssemblyAngularVelocity = Vector3.zero
+                
+                local baseRadius = 5
+                local off = Vector3.new(math.cos(angle) * baseRadius, 0, math.sin(angle) * baseRadius)
+                myHrp.CFrame = CFrame.new(cen + off, cen)
             end)
         else break end
     end
