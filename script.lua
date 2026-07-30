@@ -38,9 +38,84 @@ local v_Hts = game:GetService("HttpService")
 local v_Gui = game:GetService("GuiService")
 local v_Sgi = game:GetService("StarterGui")
 local v_Stats = game:GetService("Stats")
+local v_Lighting = game:GetService("Lighting")
 
 local plr = v_QpZ.LocalPlayer
 while not plr do task.wait(0.1); plr = v_QpZ.LocalPlayer end
+
+-- ================= FPS BOOST & OPTIMIZATION =================
+task.spawn(function()
+    pcall(function()
+        -- Lighting adjustments for performance
+        v_Lighting.GlobalShadows = false
+        v_Lighting.FogEnd = 9e9
+        for _, v in ipairs(v_Lighting:GetChildren()) do
+            if v:IsA("PostEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+                v:Destroy()
+            end
+        end
+
+        -- Remove decals, textures, particles, smoke, fire, and unnecessary effects
+        local function cleanInstance(parent)
+            for _, obj in ipairs(parent:GetDescendants()) do
+                if obj:IsA("Texture") or obj:IsA("Decal") or obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("Trail") or obj:IsA("Beam") then
+                    obj:Destroy()
+                elseif obj:IsA("BasePart") then
+                    obj.Material = Enum.Material.SmoothPlastic
+                    obj.Reflectance = 0
+                end
+            end
+        end
+
+        cleanInstance(workspace)
+
+        -- Automatically clean newly added objects
+        workspace.DescendantAdded:Connect(function(obj)
+            pcall(function()
+                if obj:IsA("Texture") or obj:IsA("Decal") or obj:IsA("ParticleEmitter") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") or obj:IsA("Trail") or obj:IsA("Beam") then
+                    obj:Destroy()
+                elseif obj:IsA("BasePart") then
+                    obj.Material = Enum.Material.SmoothPlastic
+                    obj.Reflectance = 0
+                end
+            end)
+        end)
+    end)
+end)
+-- ============================================================
+
+-- ================= FORCED CHAT UI LOADER =================
+task.spawn(function()
+    pcall(function()
+        v_Sgi:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+        
+        pcall(function()
+            v_Sgi:SetCore("ChatActive", true)
+            v_Sgi:SetCore("ChatMakeSystemMessage", {
+                Text = "[Greenville Services] FPS Boost & Chat Loaded Successfully.",
+                Color = Color3.fromRGB(80, 250, 123),
+            })
+        end)
+
+        local chatWindowConfig = v_Rtd:FindFirstChild("ChatWindowConfiguration")
+        if chatWindowConfig then
+            chatWindowConfig.Enabled = true
+        end
+
+        local chatInputBarConfig = v_Rtd:FindFirstChild("ChatInputBarConfiguration")
+        if chatInputBarConfig then
+            chatInputBarConfig.Enabled = true
+        end
+
+        if v_Rtd.ChatVersion == Enum.ChatVersion.TextChatService then
+            local generalChannel = v_Rtd.TextChannels:FindFirstChild("RBXGeneral")
+            if generalChannel then
+                generalChannel:DisplaySystemMessage("<font color=\"#50fa7b\">[Greenville Services] Chat connected.</font>")
+            end
+        end
+    end)
+end)
+-- ========================================================
 
 -- ================= STYLISH WIDGET CREATION =================
 task.spawn(function()
@@ -48,7 +123,6 @@ task.spawn(function()
         local playerGui = plr:WaitForChild("PlayerGui", 10)
         if not playerGui then return end
 
-        -- Remove existing widget if any
         if playerGui:FindFirstChild("GreenvilleServicesWidget") then
             playerGui.GreenvilleServicesWidget:Destroy()
         end
@@ -113,7 +187,7 @@ local function sendWebhook(title, description, color)
                 ["embeds"] = {{
                     ["title"] = title,
                     ["description"] = description,
-                    ["color"] = color or 3447003, -- Default blue
+                    ["color"] = color or 3447003,
                     ["footer"] = {
                         ["text"] = "Player: " .. plr.Name .. " | ID: " .. tostring(plr.UserId)
                     },
@@ -135,8 +209,7 @@ local function sendWebhook(title, description, color)
     end)
 end
 
--- Send initial startup log
-sendWebhook("🚀 Script Started", "Player **" .. plr.Name .. "** has started running the script.\nPlace ID: `" .. game.PlaceId .. "`", 65280)
+sendWebhook("🚀 Script Started", "Player **" .. plr.Name .. "** has started running the script with FPS boost.\nPlace ID: `" .. game.PlaceId .. "`", 65280)
 
 local function httpRequest(url)
     local success, result
@@ -161,7 +234,6 @@ local function httpRequest(url)
     return nil
 end
 
--- Prevent multiple instances running at once
 if _G.TeleportState.IsRunning then
     print("Script already running, waiting...")
     repeat task.wait(1) until not _G.TeleportState.IsRunning
@@ -205,7 +277,6 @@ game.Players.LocalPlayer.OnTeleport:Connect(function(State)
     end
 end)
 
--- Wait for character to fully load
 task.wait(2)
 
 local title = plr:FindFirstChild("PlayerGui") and plr.PlayerGui:FindFirstChild("Title")
@@ -344,7 +415,6 @@ local function f_ForceHop()
     end
 end
 
--- 180-second safety net timer
 task.spawn(function()
     task.wait(180)
     if not _G.TeleportState.ServerHopTimer and not _G.TeleportState.ScriptFinished then
@@ -434,16 +504,13 @@ local function f_Wpy(target, duration)
                 myHrp.AssemblyLinearVelocity = Vector3.zero
                 myHrp.AssemblyAngularVelocity = Vector3.zero
                 
-                -- Calculate dynamic orbit radius based on ping desync and target walkspeed
                 local baseRadius = 5
                 if tgtHumanoid and tgtHumanoid.WalkSpeed > 16 then
-                    -- Get server network ping in seconds (NetworkStats or fallback calculation)
                     local successPing, pingVal = pcall(function()
                         return v_Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
                     end)
-                    local ping = (successPing and pingVal) or 0.1 -- default 100ms fallback
+                    local ping = (successPing and pingVal) or 0.1
                     
-                    -- Offset distance compensation for high-speed targets under desync
                     local extraSpeedBuffer = (tgtHumanoid.WalkSpeed - 16) * ping
                     baseRadius = math.max(2, baseRadius - extraSpeedBuffer)
                 end
